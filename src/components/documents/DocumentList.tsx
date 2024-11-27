@@ -60,7 +60,14 @@ const DocumentList: React.FC<DocumentListProps> = ({
       
       // Separate documents and folders
       setDocuments(docs.filter(item => !item.folderId));
-      setFolders(docs.filter(item => item.folderId) as Folder[]);
+      // Transform documents into folders with required properties
+      const folderItems = docs.filter(item => item.folderId).map(item => ({
+        ...item,
+        owner: item.uploadedBy,
+        color: '#1976d2', // Default folder color
+        icon: 'folder', // Default folder icon
+      })) as Folder[];
+      setFolders(folderItems);
     } catch (err) {
       setError('Failed to load documents');
       console.error('Error loading documents:', err);

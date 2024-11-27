@@ -14,7 +14,6 @@ interface State {
 
 const ErrorContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
-  margin: theme.spacing(2),
   textAlign: 'center',
   maxWidth: 600,
   margin: '0 auto',

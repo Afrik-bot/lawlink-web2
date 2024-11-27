@@ -39,6 +39,7 @@ interface AuthHookReturn {
   handlePasswordResetConfirm: (oobCode: string, newPassword: string) => Promise<boolean>;
   signUp: (email: string, password: string) => Promise<{ user: User }>;
   updateUserProfile: (userId: string, data: Partial<User>) => Promise<void>;
+  checkAuth: () => Promise<void>;
 }
 
 const createUserData = (
@@ -50,18 +51,17 @@ const createUserData = (
   ...additionalData,
   uid: firebaseUser.uid,
   email: firebaseUser.email || '',
-  displayName: firebaseUser.displayName || '',
-  phoneNumber: firebaseUser.phoneNumber || null,
-  role,
+  displayName: firebaseUser.displayName || `${additionalData.firstName || ''} ${additionalData.lastName || ''}`.trim(),
+  photoURL: firebaseUser.photoURL,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-  photoURL: firebaseUser.photoURL || null,
 });
 
 export const useAuth = (): AuthHookReturn => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -130,36 +130,50 @@ export const useAuth = (): AuthHookReturn => {
 
   const handleRegister = async (data: RegisterData): Promise<boolean> => {
     try {
+      setLoading(true);
       setError(null);
+
+      // Check if email already exists
       const methods = await fetchSignInMethodsForEmail(auth, data.email);
       if (methods.length > 0) {
-        setError('This email address is already registered. Please try logging in instead.');
-        return false;
+        throw new Error('Email already exists');
       }
 
-      const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, data.email, data.password);
-      
-      const displayName = `${data.firstName} ${data.lastName}`;
-      await updateProfile(firebaseUser, {
-        displayName
-      });
+      // Create user with email and password
+      const { user: firebaseUser } = await createUserWithEmailAndPassword(
+        auth,
+        data.email,
+        data.password
+      );
 
-      const userData = createUserData(firebaseUser, data.role, {
+      // Create user data
+      const userData: User = {
+        uid: firebaseUser.uid,
+        email: data.email,
+        displayName: `${data.firstName} ${data.lastName}`,
         firstName: data.firstName,
         lastName: data.lastName,
-      });
+        role: data.role,
+        phoneNumber: data.phoneNumber || null,
+        barNumber: data.barNumber || null,
+        legalCredentials: data.legalCredentials,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        photoURL: firebaseUser.photoURL || null
+      };
+
+      // Save user data to Firestore
       await setDoc(doc(db, 'users', firebaseUser.uid), userData);
-      
-      setUser({
-        ...userData,
-        uid: firebaseUser.uid
-      });
-      
+
+      // Update user state
+      setUser(userData);
+      setIsAuthenticated(true);
+      setLoading(false);
       return true;
-    } catch (err: any) {
-      const errorMessage = getFirebaseErrorMessage(err);
-      setError(errorMessage);
-      console.error('Registration error:', err);
+    } catch (error) {
+      console.error('Registration error:', error);
+      setError(getFirebaseErrorMessage(error));
+      setLoading(false);
       return false;
     }
   };
@@ -299,11 +313,36 @@ export const useAuth = (): AuthHookReturn => {
     }
   };
 
+  const checkAuth = async (): Promise<void> => {
+    try {
+      setLoading(true);
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data() as User;
+            setUser(userData);
+            setIsAuthenticated(true);
+          }
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+        setLoading(false);
+      });
+      unsubscribe(); // Call unsubscribe immediately after setting up the listener
+    } catch (error) {
+      console.error('Error checking auth state:', error);
+      setError(getFirebaseErrorMessage(error));
+      setLoading(false);
+    }
+  };
+
   return {
     user,
     loading,
     error,
-    isAuthenticated: !!user,
+    isAuthenticated,
     handleRegister,
     handleEmailLogin,
     handleGoogleLogin,
@@ -314,6 +353,7 @@ export const useAuth = (): AuthHookReturn => {
     handlePasswordResetConfirm,
     signUp,
     updateUserProfile,
+    checkAuth,
   };
 };
 

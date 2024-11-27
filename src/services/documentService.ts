@@ -134,7 +134,7 @@ class DocumentService extends EventEmitter {
         file,
         progress: 0,
         status: 'error',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'An unknown error occurred',
       } as UploadProgress);
 
       this.activeUploads.delete(uploadId);
