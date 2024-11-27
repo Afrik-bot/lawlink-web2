@@ -9,7 +9,6 @@ import { useActivityTracker } from './hooks/useActivityTracker';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useAuth } from './hooks/useAuth';
-import FirebaseTest from './components/FirebaseTest';
 
 // Pages
 import LandingPage from './pages/landing/LandingPage';
@@ -49,7 +48,6 @@ function App() {
   useActivityTracker(); // Add activity tracking
   return (
     <div className="App">
-      <FirebaseTest />
       <Provider store={store}>
         <ThemeProvider theme={theme}>
           <CssBaseline />

@@ -26,7 +26,7 @@ export const analytics = getAnalytics(app);
 // Connect to emulators in development
 if (process.env.NODE_ENV === 'development') {
   try {
-    connectAuthEmulator(auth, 'http://localhost:9099');
+    connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
     connectFirestoreEmulator(db, 'localhost', 8080);
     connectStorageEmulator(storage, 'localhost', 9199);
   } catch (error) {
