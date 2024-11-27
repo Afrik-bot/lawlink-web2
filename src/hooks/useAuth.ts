@@ -28,6 +28,7 @@ interface AuthHookReturn {
   user: User | null;
   loading: boolean;
   error: string | null;
+  isAuthenticated: boolean;
   handleRegister: (data: RegisterData) => Promise<boolean>;
   handleEmailLogin: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
   handleGoogleLogin: () => Promise<boolean>;
@@ -46,15 +47,15 @@ const createUserData = (
   additionalData: Partial<User> = {}
 ): User => ({
   ...DEFAULT_USER_DATA,
+  ...additionalData,
   uid: firebaseUser.uid,
   email: firebaseUser.email || '',
   displayName: firebaseUser.displayName || '',
-  photoURL: firebaseUser.photoURL || '',
-  phoneNumber: firebaseUser.phoneNumber || '',
+  phoneNumber: firebaseUser.phoneNumber || null,
   role,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-  ...additionalData,
+  photoURL: firebaseUser.photoURL || null,
 });
 
 export const useAuth = (): AuthHookReturn => {
@@ -116,6 +117,7 @@ export const useAuth = (): AuthHookReturn => {
         const newUserData = createUserData(firebaseUser, 'client', {
           firstName: displayNameParts[0],
           lastName: displayNameParts.slice(1).join(' '),
+          photoURL: firebaseUser.photoURL || null,
         });
         await setDoc(doc(db, 'users', firebaseUser.uid), newUserData);
         setUser(newUserData);
@@ -149,8 +151,8 @@ export const useAuth = (): AuthHookReturn => {
       await setDoc(doc(db, 'users', firebaseUser.uid), userData);
       
       setUser({
-        uid: firebaseUser.uid,
-        ...userData
+        ...userData,
+        uid: firebaseUser.uid
       });
       
       return true;
@@ -301,6 +303,7 @@ export const useAuth = (): AuthHookReturn => {
     user,
     loading,
     error,
+    isAuthenticated: !!user,
     handleRegister,
     handleEmailLogin,
     handleGoogleLogin,

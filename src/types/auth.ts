@@ -12,6 +12,7 @@ export interface User {
   legalCredentials: string;
   createdAt: string;
   updatedAt: string;
+  photoURL: string | null;
 }
 
 export interface RegisterData {
@@ -59,4 +60,5 @@ export const DEFAULT_USER_DATA: Omit<User, 'uid' | 'email'> = {
   legalCredentials: '',
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
+  photoURL: null,
 };
