@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="60" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gavel Icon -->
+  <g transform="translate(10, 15)" fill="#2196F3">
+    <path d="M24,0 L28,0 L28,4 L24,4 L24,0 Z M26,6 L26,10 L22,10 L22,6 L26,6 Z M20,12 L24,12 L24,16 L20,16 L20,12 Z M18,18 L22,18 L22,22 L18,22 L18,18 Z"/>
+    <rect x="0" y="24" width="30" height="6" rx="2"/>
+  </g>
+  
+  <!-- Text "Law" -->
+  <g transform="translate(50, 40)">
+    <text font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="#2196F3">
+      Law
+    </text>
+  </g>
+  
+  <!-- Text "Link" -->
+  <g transform="translate(110, 40)">
+    <text font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="#1976D2">
+      Link
+    </text>
+  </g>
+  
+  <!-- Connection Lines -->
+  <g stroke="#90CAF9" stroke-width="2">
+    <line x1="95" y1="35" x2="105" y2="35"/>
+    <line x1="95" y1="38" x2="105" y2="38"/>
+  </g>
+</svg>

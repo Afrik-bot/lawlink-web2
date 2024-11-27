@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="256" cy="256" r="248" fill="#1976d2" />
+  
+  <!-- Text Shadow -->
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- LawLink Text -->
+  <text x="256" y="280" text-anchor="middle" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="white" filter="url(#shadow)">
+    <tspan fill="#ffffff">Law</tspan>
+    <tspan fill="#ffeb3b">Link</tspan>
+  </text>
+
+  <!-- Scales of Justice Icon -->
+  <path d="M256 140 L226 180 H286 L256 140Z M226 180 V200 H286 V180 H226Z" fill="#ffeb3b" stroke="white" stroke-width="2"/>
+  <circle cx="226" cy="210" r="15" fill="#ffeb3b"/>
+  <circle cx="286" cy="210" r="15" fill="#ffeb3b"/>
+  <rect x="254" y="200" width="4" height="40" fill="#ffeb3b"/>
+</svg>

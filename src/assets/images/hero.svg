@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="800" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Pattern -->
+  <rect width="1200" height="800" fill="#F5F7FA"/>
+  <path d="M0 0L1200 800" stroke="#E1E8F0" stroke-width="2"/>
+  <path d="M0 200L1200 1000" stroke="#E1E8F0" stroke-width="2"/>
+  <path d="M0 400L1200 1200" stroke="#E1E8F0" stroke-width="2"/>
+  
+  <!-- Gavel Icon -->
+  <g transform="translate(500,300) scale(2)">
+    <path d="M80 2L82 20L62 22L60 4L80 2Z" fill="#4A5568"/>
+    <rect x="58" y="20" width="26" height="8" rx="2" fill="#2D3748"/>
+    <path d="M20 60L22 78L2 80L0 62L20 60Z" fill="#4A5568"/>
+    <rect x="0" y="78" width="24" height="8" rx="2" fill="#2D3748"/>
+    <path d="M71.3137 17.3137L88.4853 34.4853L34.4853 88.4853L17.3137 71.3137L71.3137 17.3137Z" fill="#4A5568"/>
+  </g>
+  
+  <!-- Scales of Justice -->
+  <g transform="translate(300,200) scale(1.5)">
+    <path d="M50 0L100 100H0L50 0Z" fill="#4A5568"/>
+    <circle cx="50" cy="120" r="20" fill="#2D3748"/>
+    <path d="M20 140H80" stroke="#4A5568" stroke-width="4"/>
+  </g>
+  
+  <!-- Document Icons -->
+  <g transform="translate(800,200) scale(1.2)">
+    <rect x="0" y="0" width="60" height="80" rx="4" fill="#4A5568"/>
+    <rect x="10" y="20" width="40" height="4" rx="2" fill="#E2E8F0"/>
+    <rect x="10" y="30" width="40" height="4" rx="2" fill="#E2E8F0"/>
+    <rect x="10" y="40" width="30" height="4" rx="2" fill="#E2E8F0"/>
+  </g>
+  
+  <!-- Decorative Elements -->
+  <circle cx="200" cy="600" r="100" fill="#4A5568" fill-opacity="0.1"/>
+  <circle cx="1000" cy="200" r="80" fill="#4A5568" fill-opacity="0.1"/>
+  <circle cx="600" cy="700" r="60" fill="#4A5568" fill-opacity="0.1"/>
+</svg>

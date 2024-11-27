@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800px" height="600px" viewBox="0 0 800 600" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <title>Tech Connection Hero</title>
+    <defs>
+        <linearGradient x1="0%" y1="0%" x2="100%" y2="100%" id="primaryGradient">
+            <stop stop-color="#1B365D" offset="0%"/>
+            <stop stop-color="#142845" offset="100%"/>
+        </linearGradient>
+        <linearGradient x1="0%" y1="0%" x2="100%" y2="100%" id="accentGradient">
+            <stop stop-color="#7C3030" offset="0%"/>
+            <stop stop-color="#5C2424" offset="100%"/>
+        </linearGradient>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>
+            <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="glow"/>
+            <feMerge>
+                <feMergeNode in="glow"/>
+                <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+        </filter>
+    </defs>
+    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <!-- Background Pattern -->
+        <path d="M0,0 L800,0 L800,600 L0,600 Z" fill="#F5F7FA"/>
+        
+        <!-- Circuit Board Pattern -->
+        <g transform="translate(50, 50)" filter="url(#glow)">
+            <!-- Main Circuit Lines -->
+            <path d="M0,200 L700,200 M350,0 L350,500 M100,100 L600,100 M100,300 L600,300" 
+                  stroke="url(#primaryGradient)" 
+                  stroke-width="2" 
+                  opacity="0.3"/>
+            
+            <!-- Connection Nodes -->
+            <circle cx="350" cy="200" r="15" fill="url(#primaryGradient)"/>
+            <circle cx="350" cy="100" r="10" fill="url(#accentGradient)"/>
+            <circle cx="350" cy="300" r="10" fill="url(#accentGradient)"/>
+            <circle cx="100" cy="200" r="8" fill="url(#primaryGradient)"/>
+            <circle cx="600" cy="200" r="8" fill="url(#primaryGradient)"/>
+            
+            <!-- Digital Pulses -->
+            <g id="pulses" opacity="0.7">
+                <rect x="150" y="198" width="30" height="4" fill="url(#accentGradient)">
+                    <animate attributeName="x" from="150" to="550" dur="3s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" values="0;1;0" dur="3s" repeatCount="indefinite"/>
+                </rect>
+                <rect x="348" y="150" width="4" height="30" fill="url(#accentGradient)">
+                    <animate attributeName="y" from="150" to="350" dur="2s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" values="0;1;0" dur="2s" repeatCount="indefinite"/>
+                </rect>
+            </g>
+            
+            <!-- Circuit Patterns -->
+            <g id="circuitPatterns">
+                <!-- Top Left Pattern -->
+                <path d="M100,100 C150,100 150,150 200,150 L300,150" 
+                      stroke="url(#primaryGradient)" 
+                      stroke-width="2" 
+                      fill="none" 
+                      opacity="0.5"/>
+                
+                <!-- Bottom Right Pattern -->
+                <path d="M400,250 C450,250 450,300 500,300 L600,300" 
+                      stroke="url(#primaryGradient)" 
+                      stroke-width="2" 
+                      fill="none" 
+                      opacity="0.5"/>
+                
+                <!-- Small Connection Points -->
+                <g id="connectionPoints">
+                    <circle cx="200" cy="150" r="4" fill="url(#accentGradient)"/>
+                    <circle cx="300" cy="150" r="4" fill="url(#accentGradient)"/>
+                    <circle cx="500" cy="300" r="4" fill="url(#accentGradient)"/>
+                    <circle cx="600" cy="300" r="4" fill="url(#accentGradient)"/>
+                </g>
+            </g>
+            
+            <!-- Binary Code Pattern -->
+            <g id="binaryPattern" opacity="0.2" fill="#1B365D">
+                <text x="50" y="250" font-family="monospace" font-size="12">10110</text>
+                <text x="150" y="150" font-family="monospace" font-size="12">01001</text>
+                <text x="500" y="250" font-family="monospace" font-size="12">11010</text>
+                <text x="600" y="150" font-family="monospace" font-size="12">10101</text>
+            </g>
+        </g>
+        
+        <!-- Floating Connection Elements -->
+        <g transform="translate(400, 300)" filter="url(#glow)">
+            <g id="floatingElements">
+                <!-- Central Hub -->
+                <circle cx="0" cy="0" r="20" fill="url(#primaryGradient)"/>
+                
+                <!-- Orbiting Elements -->
+                <g id="orbitingElements">
+                    <g transform="rotate(0)">
+                        <circle cx="60" cy="0" r="8" fill="url(#accentGradient)">
+                            <animateTransform
+                                attributeName="transform"
+                                type="rotate"
+                                from="0 0 0"
+                                to="360 0 0"
+                                dur="8s"
+                                repeatCount="indefinite"/>
+                        </circle>
+                    </g>
+                    <g transform="rotate(120)">
+                        <circle cx="60" cy="0" r="8" fill="url(#accentGradient)">
+                            <animateTransform
+                                attributeName="transform"
+                                type="rotate"
+                                from="120 0 0"
+                                to="480 0 0"
+                                dur="8s"
+                                repeatCount="indefinite"/>
+                        </circle>
+                    </g>
+                    <g transform="rotate(240)">
+                        <circle cx="60" cy="0" r="8" fill="url(#accentGradient)">
+                            <animateTransform
+                                attributeName="transform"
+                                type="rotate"
+                                from="240 0 0"
+                                to="600 0 0"
+                                dur="8s"
+                                repeatCount="indefinite"/>
+                        </circle>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>
