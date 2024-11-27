@@ -162,12 +162,11 @@ const ClientSignup = () => {
       const success = await handleRegister({
         email: formData.email,
         password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
         role: 'client',
-        profile: {
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          phoneNumber: formData.phone,
-        },
+        phoneNumber: formData.phone,
+        legalCredentials: '', // Not required for clients
       });
 
       if (success) {
