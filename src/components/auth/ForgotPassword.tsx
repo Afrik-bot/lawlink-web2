@@ -12,7 +12,7 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { Email as EmailIcon } from '@mui/icons-material';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ForgotPassword: React.FC = () => {
   const navigate = useNavigate();

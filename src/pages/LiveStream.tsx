@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { VideoCall as VideoCallIcon } from '@mui/icons-material';
 import LiveStreamRoom from '../components/LiveStream/LiveStreamRoom';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../contexts/AuthContext';
 import { db } from '../config/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';

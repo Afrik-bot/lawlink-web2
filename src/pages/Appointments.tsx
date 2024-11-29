@@ -1,135 +1,190 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
-  Grid,
-  Paper,
   Typography,
   Box,
   Button,
+  Grid,
   Card,
   CardContent,
   CardActions,
-  IconButton,
-  Divider,
   Chip,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
-  MenuItem,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Divider,
+  Paper,
+  CircularProgress,
 } from '@mui/material';
 import {
-  Event as EventIcon,
   Add as AddIcon,
+  Event as EventIcon,
   VideoCall as VideoCallIcon,
   Message as MessageIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../hooks/useAuth';
+import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import appointmentService, { Appointment } from '../services/AppointmentService';
 
 const Appointments = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [openDialog, setOpenDialog] = useState(false);
+  const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
+  const [pastAppointments, setPastAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Placeholder appointments data
-  const appointments = [
-    {
-      id: 1,
-      consultant: 'John Smith',
-      date: '2023-12-15',
-      time: '10:00 AM',
-      status: 'upcoming',
-      type: 'video',
-    },
-    {
-      id: 2,
-      consultant: 'Sarah Johnson',
-      date: '2023-12-20',
-      time: '2:30 PM',
-      status: 'upcoming',
-      type: 'in-person',
-    },
-    {
-      id: 3,
-      consultant: 'Michael Brown',
-      date: '2023-11-30',
-      time: '11:00 AM',
-      status: 'completed',
-      type: 'video',
-    },
-  ];
+  const loadAppointments = async () => {
+    try {
+      if (!user?.uid || !user?.role) return;
 
-  const handleOpenDialog = () => {
-    setOpenDialog(true);
+      const [upcoming, past] = await Promise.all([
+        appointmentService.getUpcomingAppointments(user.uid, user.role),
+        appointmentService.getPastAppointments(user.uid, user.role)
+      ]);
+
+      setUpcomingAppointments(upcoming);
+      setPastAppointments(past);
+    } catch (err) {
+      setError('Failed to load appointments');
+      console.error('Error loading appointments:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
+  useEffect(() => {
+    loadAppointments();
+  }, [user]);
+
+  const handleCancelAppointment = async (appointmentId: string) => {
+    try {
+      await appointmentService.cancelAppointment(appointmentId);
+      await loadAppointments();
+    } catch (err) {
+      setError('Failed to cancel appointment');
+      console.error('Error canceling appointment:', err);
+    }
   };
 
-  const handleBookAppointment = () => {
-    // TODO: Implement appointment booking
-    handleCloseDialog();
+  const handleJoinMeeting = (appointmentId: string) => {
+    navigate(`/live-stream/room/${appointmentId}`);
   };
+
+  const handleMessage = (userId: string) => {
+    navigate(`/messages?userId=${userId}`);
+  };
+
+  if (loading) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4, textAlign: 'center' }}>
+        <CircularProgress />
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Paper sx={{ p: 3, textAlign: 'center', color: 'error.main' }}>
+          <Typography>{error}</Typography>
+          <Button onClick={loadAppointments} sx={{ mt: 2 }}>
+            Retry
+          </Button>
+        </Paper>
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">Appointments</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleOpenDialog}
-        >
-          Book Appointment
-        </Button>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4 }}>
+        <Typography variant="h4" component="h1">
+          Appointments
+        </Typography>
+        {user?.role === 'client' && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/search-consultants')}
+          >
+            Book Consultation
+          </Button>
+        )}
       </Box>
 
       <Grid container spacing={3}>
         {/* Upcoming Appointments */}
-        <Grid item xs={12} md={8}>
-          <Typography variant="h6" gutterBottom>
+        <Grid item xs={12}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
             Upcoming Appointments
           </Typography>
-          <Grid container spacing={2}>
-            {appointments
-              .filter((apt) => apt.status === 'upcoming')
-              .map((appointment) => (
-                <Grid item xs={12} key={appointment.id}>
+          {upcomingAppointments.length === 0 ? (
+            <Paper sx={{ p: 3, textAlign: 'center' }}>
+              <Typography color="textSecondary">
+                No upcoming appointments
+              </Typography>
+              {user?.role === 'client' && (
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => navigate('/search-consultants')}
+                  sx={{ mt: 2 }}
+                >
+                  Book a Consultation
+                </Button>
+              )}
+            </Paper>
+          ) : (
+            <Grid container spacing={2}>
+              {upcomingAppointments.map((appointment) => (
+                <Grid item xs={12} md={6} key={appointment.id}>
                   <Card>
                     <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                        <EventIcon sx={{ mr: 1 }} color="primary" />
-                        <Typography variant="h6">
-                          {appointment.date} at {appointment.time}
-                        </Typography>
-                        <Chip
-                          label={appointment.type}
-                          color="primary"
-                          size="small"
-                          sx={{ ml: 2 }}
-                        />
-                      </Box>
-                      <Typography variant="body1" gutterBottom>
-                        Consultant: {appointment.consultant}
+                      <Typography variant="h6" gutterBottom>
+                        {format(appointment.startTime.toDate(), 'PPP')}
                       </Typography>
+                      <Typography color="textSecondary" gutterBottom>
+                        {format(appointment.startTime.toDate(), 'p')} - {format(appointment.endTime.toDate(), 'p')}
+                      </Typography>
+                      <Divider sx={{ my: 1 }} />
+                      <Typography variant="body2" paragraph>
+                        {appointment.notes || 'No additional notes'}
+                      </Typography>
+                      <Chip
+                        label={appointment.status}
+                        color={appointment.status === 'scheduled' ? 'primary' : 'default'}
+                        size="small"
+                      />
                     </CardContent>
                     <CardActions>
                       <Button
                         size="small"
                         startIcon={<VideoCallIcon />}
-                        disabled={appointment.type !== 'video'}
+                        onClick={() => handleJoinMeeting(appointment.id)}
                       >
-                        Join Call
+                        Join Meeting
                       </Button>
-                      <Button size="small" startIcon={<MessageIcon />}>
+                      <Button
+                        size="small"
+                        startIcon={<MessageIcon />}
+                        onClick={() => handleMessage(user?.role === 'client' ? appointment.consultantId : appointment.clientId)}
+                      >
                         Message
                       </Button>
                       <IconButton
                         size="small"
                         color="error"
-                        sx={{ ml: 'auto' }}
+                        onClick={() => handleCancelAppointment(appointment.id)}
                       >
                         <DeleteIcon />
                       </IconButton>
@@ -137,106 +192,59 @@ const Appointments = () => {
                   </Card>
                 </Grid>
               ))}
-          </Grid>
+            </Grid>
+          )}
         </Grid>
 
         {/* Past Appointments */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Past Appointments
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            {appointments
-              .filter((apt) => apt.status === 'completed')
-              .map((appointment) => (
-                <Box
-                  key={appointment.id}
-                  sx={{
-                    mb: 2,
-                    p: 2,
-                    bgcolor: 'background.default',
-                    borderRadius: 1,
-                  }}
-                >
-                  <Typography variant="subtitle1" gutterBottom>
-                    {appointment.consultant}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {appointment.date} at {appointment.time}
-                  </Typography>
-                  <Chip
-                    label={appointment.type}
-                    size="small"
-                    sx={{ mt: 1 }}
-                  />
-                </Box>
+        <Grid item xs={12}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Past Appointments
+          </Typography>
+          {pastAppointments.length === 0 ? (
+            <Paper sx={{ p: 3, textAlign: 'center' }}>
+              <Typography color="textSecondary">
+                No past appointments
+              </Typography>
+            </Paper>
+          ) : (
+            <Grid container spacing={2}>
+              {pastAppointments.map((appointment) => (
+                <Grid item xs={12} md={6} key={appointment.id}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        {format(appointment.startTime.toDate(), 'PPP')}
+                      </Typography>
+                      <Typography color="textSecondary" gutterBottom>
+                        {format(appointment.startTime.toDate(), 'p')} - {format(appointment.endTime.toDate(), 'p')}
+                      </Typography>
+                      <Divider sx={{ my: 1 }} />
+                      <Typography variant="body2" paragraph>
+                        {appointment.notes || 'No additional notes'}
+                      </Typography>
+                      <Chip
+                        label={appointment.status}
+                        color="default"
+                        size="small"
+                      />
+                    </CardContent>
+                    <CardActions>
+                      <Button
+                        size="small"
+                        startIcon={<MessageIcon />}
+                        onClick={() => handleMessage(user?.role === 'client' ? appointment.consultantId : appointment.clientId)}
+                      >
+                        Message
+                      </Button>
+                    </CardActions>
+                  </Card>
+                </Grid>
               ))}
-          </Paper>
+            </Grid>
+          )}
         </Grid>
       </Grid>
-
-      {/* Book Appointment Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog}>
-        <DialogTitle>Book an Appointment</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                select
-                label="Consultant"
-                defaultValue=""
-              >
-                <MenuItem value="john">John Smith</MenuItem>
-                <MenuItem value="sarah">Sarah Johnson</MenuItem>
-                <MenuItem value="michael">Michael Brown</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                select
-                label="Appointment Type"
-                defaultValue=""
-              >
-                <MenuItem value="video">Video Call</MenuItem>
-                <MenuItem value="in-person">In-Person</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                type="date"
-                label="Date"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                type="time"
-                label="Time"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={4}
-                label="Additional Notes"
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button onClick={handleBookAppointment} variant="contained">
-            Book Appointment
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Container>
   );
 };

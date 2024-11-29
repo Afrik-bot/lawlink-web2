@@ -17,7 +17,7 @@ import {
   Phone as PhoneIcon,
   Lock as LockIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface FormData {
   firstName: string;

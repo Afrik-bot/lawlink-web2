@@ -43,4 +43,5 @@ export interface UploadProgress {
   progress: number;
   status: 'pending' | 'uploading' | 'completed' | 'error';
   error?: string;
+  document?: Document;
 }

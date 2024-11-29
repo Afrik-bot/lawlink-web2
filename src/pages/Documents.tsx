@@ -48,7 +48,7 @@ import {
   FieldPath,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../contexts/AuthContext';
 
 interface DocumentBase {
   id: string;

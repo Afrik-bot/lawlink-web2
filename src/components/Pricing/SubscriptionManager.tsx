@@ -19,7 +19,7 @@ import {
   DialogActions,
 } from '@mui/material';
 import { Check, Close } from '@mui/icons-material';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../contexts/AuthContext';
 import paymentService from '../../services/PaymentService';
 import { loadStripe } from '@stripe/stripe-js';
 

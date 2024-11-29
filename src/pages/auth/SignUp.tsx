@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../contexts/AuthContext';
 import { loadStripe } from '@stripe/stripe-js';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -143,7 +143,10 @@ const SignUp: React.FC = () => {
             </Alert>
           )}
 
-          <Box component="form" noValidate sx={{ mt: 2 }}>
+          <Box component="form" noValidate sx={{ mt: 2 }} onSubmit={(e) => {
+            e.preventDefault();
+            handleSignUp();
+          }}>
             <TextField
               margin="normal"
               required
@@ -229,10 +232,10 @@ const SignUp: React.FC = () => {
             />
 
             <Button
+              type="submit"
               fullWidth
               variant="contained"
               color="primary"
-              onClick={handleSignUp}
               disabled={loading}
               sx={{ mt: 3, mb: 2 }}
             >

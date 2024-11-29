@@ -22,7 +22,7 @@ import {
   Chat as ChatIcon,
   FiberManualRecord,
 } from '@mui/icons-material';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../config/firebase';
 import {
   collection,

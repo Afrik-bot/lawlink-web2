@@ -34,6 +34,11 @@ class DocumentService extends EventEmitter {
     this.activeUploads.set(uploadId, { abort: () => abortController.abort() });
 
     try {
+      const user = authService.getCurrentUser();
+      if (!user) {
+        throw new Error('User must be authenticated to upload documents');
+      }
+
       // Initialize upload
       const headers = await this.getHeaders();
       const initResponse = await fetch(`${this.baseUrl}/upload/init`, {
@@ -47,7 +52,11 @@ class DocumentService extends EventEmitter {
           fileSize: file.size,
           fileType: file.type,
           folderId,
-          metadata,
+          metadata: {
+            ...metadata,
+            userId: user.uid,
+            ownerId: user.uid,
+          },
         }),
         signal: abortController.signal,
       });
@@ -69,27 +78,39 @@ class DocumentService extends EventEmitter {
         formData.append('chunk', chunk);
         formData.append('chunkIndex', index.toString());
         formData.append('uploadId', serverUploadId);
+        formData.append('userId', user.uid);
 
-        const response = await fetch(`${this.baseUrl}/upload/chunk`, {
-          method: 'POST',
-          headers: await this.getHeaders(),
-          body: formData,
-          signal: abortController.signal,
-        });
+        try {
+          const response = await fetch(`${this.baseUrl}/upload/chunk`, {
+            method: 'POST',
+            headers: await this.getHeaders(),
+            body: formData,
+            signal: abortController.signal,
+          });
 
-        if (!response.ok) {
-          throw new Error(`Failed to upload chunk ${index}`);
+          if (!response.ok) {
+            throw new Error(`Failed to upload chunk ${index}`);
+          }
+
+          uploadedChunks++;
+          const progress = (uploadedChunks / totalChunks) * 100;
+
+          this.emit('uploadProgress', {
+            uploadId,
+            file,
+            progress,
+            status: 'uploading',
+          } as UploadProgress);
+        } catch (error: unknown) {
+          this.emit('uploadProgress', {
+            uploadId,
+            file,
+            progress: 0,
+            status: 'error',
+            error: error instanceof Error ? error.message : `Failed to upload chunk ${index}`,
+          } as UploadProgress);
+          throw error instanceof Error ? error : new Error(`Failed to upload chunk ${index}`);
         }
-
-        uploadedChunks++;
-        const progress = (uploadedChunks / totalChunks) * 100;
-
-        this.emit('uploadProgress', {
-          uploadId,
-          file,
-          progress,
-          status: 'uploading',
-        } as UploadProgress);
       };
 
       // Upload chunks in parallel, but limit concurrency
@@ -108,7 +129,12 @@ class DocumentService extends EventEmitter {
         },
         body: JSON.stringify({
           uploadId: serverUploadId,
-          metadata,
+          userId: user.uid,
+          metadata: {
+            ...metadata,
+            userId: user.uid,
+            ownerId: user.uid,
+          },
         }),
         signal: abortController.signal,
       });
@@ -124,11 +150,12 @@ class DocumentService extends EventEmitter {
         file,
         progress: 100,
         status: 'completed',
+        document,
       } as UploadProgress);
 
       this.activeUploads.delete(uploadId);
       return document;
-    } catch (error) {
+    } catch (error: unknown) {
       this.emit('uploadProgress', {
         uploadId,
         file,
@@ -138,7 +165,10 @@ class DocumentService extends EventEmitter {
       } as UploadProgress);
 
       this.activeUploads.delete(uploadId);
-      throw error;
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('An unknown error occurred during upload');
     }
   }
 
@@ -151,103 +181,151 @@ class DocumentService extends EventEmitter {
   }
 
   async getDocuments(folderId?: string): Promise<Document[]> {
-    const headers = await this.getHeaders();
-    const url = new URL(this.baseUrl);
-    if (folderId) url.searchParams.append('folderId', folderId);
+    try {
+      const headers = await this.getHeaders();
+      const url = new URL(this.baseUrl);
+      if (folderId) url.searchParams.append('folderId', folderId);
 
-    const response = await fetch(url.toString(), {
-      headers,
-    });
+      const response = await fetch(url.toString(), {
+        headers,
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch documents');
+      if (!response.ok) {
+        throw new Error('Failed to fetch documents');
+      }
+
+      return response.json();
+    } catch (error: unknown) {
+      throw error instanceof Error ? error : new Error('Failed to fetch documents');
     }
-
-    return response.json();
   }
 
   async createFolder(folder: Partial<Folder>): Promise<Folder> {
-    const headers = await this.getHeaders();
-    const response = await fetch(`${this.baseUrl}/folders`, {
-      method: 'POST',
-      headers: {
-        ...headers,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(folder),
-    });
+    try {
+      const user = authService.getCurrentUser();
+      if (!user) {
+        throw new Error('User must be authenticated to create folders');
+      }
 
-    if (!response.ok) {
-      throw new Error('Failed to create folder');
+      const headers = await this.getHeaders();
+      const response = await fetch(`${this.baseUrl}/folders`, {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...folder,
+          userId: user.uid,
+          ownerId: user.uid,
+          type: 'folder',
+          status: 'active',
+          sharedWith: {},
+          metadata: {
+            createdAt: new Date(),
+            lastModified: new Date()
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create folder');
+      }
+
+      const newFolder = await response.json();
+      console.log('Folder created successfully:', newFolder);
+      
+      // Emit folderCreated event
+      this.emit('folderCreated', newFolder);
+      
+      return newFolder;
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      throw error instanceof Error ? error : new Error('Failed to create folder');
     }
-
-    return response.json();
   }
 
   async shareDocument(documentId: string, userId: string, accessLevel: 'read' | 'write'): Promise<Document> {
-    const headers = await this.getHeaders();
-    const response = await fetch(`${this.baseUrl}/${documentId}/share`, {
-      method: 'POST',
-      headers: {
-        ...headers,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ userId, accessLevel }),
-    });
+    try {
+      const headers = await this.getHeaders();
+      const response = await fetch(`${this.baseUrl}/${documentId}/share`, {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId, accessLevel }),
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to share document');
+      if (!response.ok) {
+        throw new Error('Failed to share document');
+      }
+
+      return response.json();
+    } catch (error: unknown) {
+      throw error instanceof Error ? error : new Error('Failed to share document');
     }
-
-    return response.json();
   }
 
   async updateDocument(documentId: string, updates: Partial<Document>): Promise<Document> {
-    const headers = await this.getHeaders();
-    const response = await fetch(`${this.baseUrl}/${documentId}`, {
-      method: 'PATCH',
-      headers: {
-        ...headers,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(updates),
-    });
+    try {
+      const headers = await this.getHeaders();
+      const response = await fetch(`${this.baseUrl}/${documentId}`, {
+        method: 'PATCH',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to update document');
+      if (!response.ok) {
+        throw new Error('Failed to update document');
+      }
+
+      return response.json();
+    } catch (error: unknown) {
+      throw error instanceof Error ? error : new Error('Failed to update document');
     }
-
-    return response.json();
   }
 
   async deleteDocument(documentId: string): Promise<void> {
-    const headers = await this.getHeaders();
-    const response = await fetch(`${this.baseUrl}/${documentId}`, {
-      method: 'DELETE',
-      headers,
-    });
+    try {
+      const headers = await this.getHeaders();
+      const response = await fetch(`${this.baseUrl}/${documentId}`, {
+        method: 'DELETE',
+        headers,
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to delete document');
+      if (!response.ok) {
+        throw new Error('Failed to delete document');
+      }
+    } catch (error: unknown) {
+      throw error instanceof Error ? error : new Error('Failed to delete document');
     }
   }
 
   async moveDocument(documentId: string, targetFolderId: string): Promise<Document> {
-    const headers = await this.getHeaders();
-    const response = await fetch(`${this.baseUrl}/${documentId}/move`, {
-      method: 'POST',
-      headers: {
-        ...headers,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ targetFolderId }),
-    });
+    try {
+      const headers = await this.getHeaders();
+      const response = await fetch(`${this.baseUrl}/${documentId}/move`, {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ targetFolderId }),
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to move document');
+      if (!response.ok) {
+        throw new Error('Failed to move document');
+      }
+
+      return response.json();
+    } catch (error: unknown) {
+      throw error instanceof Error ? error : new Error('Failed to move document');
     }
-
-    return response.json();
   }
 }
 

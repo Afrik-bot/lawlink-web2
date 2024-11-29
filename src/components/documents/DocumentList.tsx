@@ -25,7 +25,7 @@ import {
   Delete as DeleteIcon,
   Download as DownloadIcon,
 } from '@mui/icons-material';
-import { Document, Folder } from '../../types/document';
+import { Document, Folder, UploadProgress } from '../../types/document';
 import documentService from '../../services/documentService';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -33,12 +33,16 @@ interface DocumentListProps {
   folderId?: string;
   onDocumentSelect?: (document: Document) => void;
   onFolderSelect?: (folder: Folder) => void;
+  onUploadComplete?: () => void;
+  onFolderCreated?: () => void;
 }
 
 const DocumentList: React.FC<DocumentListProps> = ({
   folderId,
   onDocumentSelect,
   onFolderSelect,
+  onUploadComplete,
+  onFolderCreated,
 }) => {
   const theme = useTheme();
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -48,33 +52,75 @@ const DocumentList: React.FC<DocumentListProps> = ({
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [selectedItem, setSelectedItem] = useState<Document | Folder | null>(null);
 
-  useEffect(() => {
-    loadDocuments();
-  }, [folderId]);
-
   const loadDocuments = async () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('Fetching documents for folder:', folderId);
       const docs = await documentService.getDocuments(folderId);
+      console.log('Fetched documents:', docs);
       
       // Separate documents and folders
-      setDocuments(docs.filter(item => !item.folderId));
-      // Transform documents into folders with required properties
-      const folderItems = docs.filter(item => item.folderId).map(item => ({
-        ...item,
+      const documentItems = docs.filter(item => item.type !== 'folder');
+      const folderItems = docs.filter(item => item.type === 'folder').map(item => ({
+        _id: item._id,
+        name: item.name,
+        path: item.path,
+        parentId: item.folderId,
         owner: item.uploadedBy,
+        consultantId: item.consultantId,
+        sharedWith: item.sharedWith,
         color: '#1976d2', // Default folder color
         icon: 'folder', // Default folder icon
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt
       })) as Folder[];
+      
+      console.log('Documents:', documentItems);
+      console.log('Folders:', folderItems);
+      
+      setDocuments(documentItems);
       setFolders(folderItems);
     } catch (err) {
-      setError('Failed to load documents');
       console.error('Error loading documents:', err);
+      setError('Failed to load documents');
     } finally {
       setLoading(false);
     }
   };
+
+  // Load documents on mount and when folderId changes
+  useEffect(() => {
+    loadDocuments();
+  }, [folderId]);
+
+  // Reload documents when a new document is uploaded
+  useEffect(() => {
+    const handleUploadProgress = (progress: UploadProgress) => {
+      if (progress.status === 'completed') {
+        console.log('Upload completed, reloading documents');
+        loadDocuments();
+      }
+    };
+
+    documentService.on('uploadProgress', handleUploadProgress);
+    return () => {
+      documentService.off('uploadProgress', handleUploadProgress);
+    };
+  }, []);
+
+  // Reload documents when a new folder is created
+  useEffect(() => {
+    const handleFolderCreated = () => {
+      console.log('Folder created, reloading documents');
+      loadDocuments();
+    };
+
+    documentService.on('folderCreated', handleFolderCreated);
+    return () => {
+      documentService.off('folderCreated', handleFolderCreated);
+    };
+  }, []);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, item: Document | Folder) => {
     event.stopPropagation();

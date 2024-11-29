@@ -28,7 +28,7 @@ import {
   Lock as LockIcon,
   Gavel as GavelIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types/auth';
 
 const steps = ['Role', 'Personal Information', 'Credentials'];

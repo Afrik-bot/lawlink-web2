@@ -13,7 +13,7 @@ import {
 import { Send as SendIcon } from '@mui/icons-material';
 import { db } from '../../config/firebase';
 import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Message {
   id: string;

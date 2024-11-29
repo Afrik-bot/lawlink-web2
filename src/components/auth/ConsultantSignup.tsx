@@ -96,7 +96,8 @@ const ConsultantSignup: React.FC = () => {
           process.env.REACT_APP_JWT_LOCAL_STORAGE_KEY || 'lawlink_auth_token',
           response.data.token
         );
-        navigate('/dashboard');
+        // Redirect to subscription page instead of dashboard
+        navigate('/subscription');
       }
     } catch (err: any) {
       setError(

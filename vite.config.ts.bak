@@ -6,10 +6,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    host: 'localhost',
-    hmr: {
-      overlay: false,
-    },
+    host: true,
+    strictPort: true,
+    open: true,
   },
   resolve: {
     alias: {
@@ -30,4 +29,6 @@ export default defineConfig({
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom', '@mui/material'],
   },
+  publicDir: 'public',
+  base: '/',
 });

@@ -14,335 +14,262 @@ import {
   Box,
   IconButton,
   Badge,
+  CircularProgress,
 } from '@mui/material';
 import {
   Send as SendIcon,
   Search as SearchIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../hooks/useAuth';
-
-interface Message {
-  id: string;
-  senderId: string;
-  content: string;
-  timestamp: Date;
-}
-
-interface Conversation {
-  id: number;
-  name: string;
-  lastMessage: string;
-  time: string;
-  unread: boolean;
-  messages: Message[];
-}
+import { useAuth } from '../contexts/AuthContext';
+import { useLocation } from 'react-router-dom';
+import messageService, { Message, Conversation } from '../services/MessageService';
 
 const Messages = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Placeholder messages data
-  const [conversations, setConversations] = useState<Conversation[]>([
-    {
-      id: 1,
-      name: 'John Smith',
-      lastMessage: 'Thank you for your consultation',
-      time: '10:30 AM',
-      unread: true,
-      messages: [
-        {
-          id: '1',
-          senderId: 'john',
-          content: 'Hello, how can I help you today?',
-          timestamp: new Date('2024-02-10T10:25:00'),
-        },
-        {
-          id: '2',
-          senderId: user?.id || '',
-          content: 'I need help with a contract review',
-          timestamp: new Date('2024-02-10T10:28:00'),
-        },
-        {
-          id: '3',
-          senderId: 'john',
-          content: 'Thank you for your consultation',
-          timestamp: new Date('2024-02-10T10:30:00'),
-        },
-      ],
-    },
-    {
-      id: 2,
-      name: 'Sarah Johnson',
-      lastMessage: 'When can we schedule the next meeting?',
-      time: 'Yesterday',
-      unread: false,
-      messages: [
-        {
-          id: '1',
-          senderId: user?.id || '',
-          content: 'Hi Sarah, I wanted to discuss our case',
-          timestamp: new Date('2024-02-09T15:20:00'),
-        },
-        {
-          id: '2',
-          senderId: 'sarah',
-          content: 'When can we schedule the next meeting?',
-          timestamp: new Date('2024-02-09T15:25:00'),
-        },
-      ],
-    },
-    {
-      id: 3,
-      name: 'Michael Brown',
-      lastMessage: 'I have reviewed the documents',
-      time: 'Yesterday',
-      unread: false,
-      messages: [
-        {
-          id: '1',
-          senderId: 'michael',
-          content: 'I have reviewed the documents',
-          timestamp: new Date('2024-02-09T14:30:00'),
-        },
-      ],
-    },
-  ]);
+  // Get userId from URL query params if it exists
+  const searchParams = new URLSearchParams(location.search);
+  const targetUserId = searchParams.get('userId');
 
   useEffect(() => {
-    scrollToBottom();
-  }, [selectedConversation]);
+    const loadConversations = async () => {
+      if (!user?.uid) return;
+      
+      try {
+        const userConversations = await messageService.getConversations(user.uid);
+        setConversations(userConversations);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const handleConversationSelect = (conversation: Conversation) => {
-    if (conversation.unread) {
-      // Mark conversation as read
-      setConversations(prevConversations =>
-        prevConversations.map(conv =>
-          conv.id === conversation.id ? { ...conv, unread: false } : conv
-        )
-      );
-    }
-    setSelectedConversation(conversation);
-  };
-
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !selectedConversation) return;
-
-    const newMessageObj: Message = {
-      id: Math.random().toString(36).substr(2, 9),
-      senderId: user?.id || '',
-      content: newMessage.trim(),
-      timestamp: new Date(),
+        // If targetUserId exists, find or create conversation with that user
+        if (targetUserId) {
+          const conversationId = await messageService.getOrCreateConversation(user.uid, targetUserId);
+          const conversation = userConversations.find(c => c.id === conversationId);
+          if (conversation) {
+            setSelectedConversation(conversation);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading conversations:', err);
+        setError('Failed to load conversations');
+      } finally {
+        setLoading(false);
+      }
     };
 
-    // Update conversation with new message
-    setConversations(prevConversations =>
-      prevConversations.map(conv =>
-        conv.id === selectedConversation.id
-          ? {
-              ...conv,
-              lastMessage: newMessage.trim(),
-              time: 'Just now',
-              messages: [...conv.messages, newMessageObj],
-            }
-          : conv
-      )
-    );
+    loadConversations();
+  }, [user, targetUserId]);
 
-    // Update selected conversation
-    setSelectedConversation(prev =>
-      prev ? { ...prev, messages: [...prev.messages, newMessageObj] } : null
-    );
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
 
-    setNewMessage('');
-    setTimeout(scrollToBottom, 100);
-  };
-
-  const filteredConversations = conversations.filter(conversation =>
-    conversation.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const formatMessageTime = (date: Date) => {
-    const today = new Date();
-    const messageDate = new Date(date);
-
-    if (
-      messageDate.getDate() === today.getDate() &&
-      messageDate.getMonth() === today.getMonth() &&
-      messageDate.getFullYear() === today.getFullYear()
-    ) {
-      return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (selectedConversation?.id) {
+      unsubscribe = messageService.subscribeToMessages(
+        selectedConversation.id,
+        (updatedMessages) => {
+          setMessages(updatedMessages);
+          // Mark messages as read
+          if (user?.uid) {
+            messageService.markMessagesAsRead(selectedConversation.id, user.uid);
+          }
+        }
+      );
     }
-    return messageDate.toLocaleDateString();
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [selectedConversation, user]);
+
+  useEffect(() => {
+    // Scroll to bottom when messages change
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSendMessage = async () => {
+    if (!user?.uid || !selectedConversation || !newMessage.trim()) return;
+
+    try {
+      const otherParticipant = selectedConversation.participants.find(id => id !== user.uid);
+      if (!otherParticipant) return;
+
+      await messageService.sendMessage(user.uid, otherParticipant, newMessage.trim());
+      setNewMessage('');
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setError('Failed to send message');
+    }
   };
+
+  const handleKeyPress = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  if (loading) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4, textAlign: 'center' }}>
+        <CircularProgress />
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Paper sx={{ p: 3, textAlign: 'center', color: 'error.main' }}>
+          <Typography>{error}</Typography>
+        </Paper>
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        Messages
-      </Typography>
-      <Grid container spacing={3}>
+      <Grid container spacing={2} sx={{ height: 'calc(100vh - 200px)' }}>
         {/* Conversations List */}
         <Grid item xs={12} md={4}>
-          <Paper sx={{ height: 'calc(100vh - 200px)', display: 'flex', flexDirection: 'column' }}>
+          <Paper sx={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: 2 }}>
               <TextField
                 fullWidth
-                placeholder="Search conversations"
+                size="small"
+                placeholder="Search conversations..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 InputProps={{
-                  startAdornment: <SearchIcon color="action" />,
+                  startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
                 }}
-                variant="outlined"
-                size="small"
               />
             </Box>
             <Divider />
             <List sx={{ flexGrow: 1, overflow: 'auto' }}>
-              {filteredConversations.map((conversation) => (
-                <React.Fragment key={conversation.id}>
-                  <ListItem
-                    button
-                    selected={selectedConversation?.id === conversation.id}
-                    onClick={() => handleConversationSelect(conversation)}
-                    sx={{
-                      '&:hover': {
-                        backgroundColor: 'action.selected',
-                      },
-                    }}
-                  >
-                    <ListItemAvatar>
-                      <Badge
-                        color="primary"
-                        variant="dot"
-                        invisible={!conversation.unread}
-                        overlap="circular"
-                        anchorOrigin={{
-                          vertical: 'bottom',
-                          horizontal: 'right',
+              {conversations
+                .filter(conv => {
+                  // Add search filtering logic here
+                  return true;
+                })
+                .map((conversation) => (
+                  <React.Fragment key={conversation.id}>
+                    <ListItem
+                      button
+                      selected={selectedConversation?.id === conversation.id}
+                      onClick={() => setSelectedConversation(conversation)}
+                    >
+                      <ListItemAvatar>
+                        <Badge
+                          badgeContent={user?.uid ? conversation.unreadCount[user.uid] || 0 : 0}
+                          color="primary"
+                          invisible={user?.uid ? !(conversation.unreadCount[user.uid] || 0) : true}
+                        >
+                          <Avatar>
+                            {conversation.participants.find(id => id !== user?.uid)?.[0]?.toUpperCase()}
+                          </Avatar>
+                        </Badge>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={conversation.participants.find(id => id !== user?.uid)}
+                        secondary={conversation.lastMessage?.content}
+                        secondaryTypographyProps={{
+                          noWrap: true,
+                          style: {
+                            color: conversation.unreadCount[user?.uid || ''] ? 'primary' : 'inherit',
+                          },
                         }}
-                      >
-                        <Avatar>{conversation.name[0]}</Avatar>
-                      </Badge>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={conversation.name}
-                      secondary={conversation.lastMessage}
-                      primaryTypographyProps={{
-                        fontWeight: conversation.unread ? 'bold' : 'regular',
-                      }}
-                    />
-                    <Typography variant="caption" color="text.secondary">
-                      {conversation.time}
-                    </Typography>
-                  </ListItem>
-                  <Divider component="li" />
-                </React.Fragment>
-              ))}
+                      />
+                    </ListItem>
+                    <Divider component="li" />
+                  </React.Fragment>
+                ))}
             </List>
           </Paper>
         </Grid>
 
-        {/* Chat Window */}
+        {/* Messages */}
         <Grid item xs={12} md={8}>
-          <Paper sx={{ height: 'calc(100vh - 200px)', display: 'flex', flexDirection: 'column' }}>
-            {/* Chat Header */}
-            <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-              <Typography variant="h6">
-                {selectedConversation ? selectedConversation.name : 'Select a conversation'}
-              </Typography>
-            </Box>
-
-            {/* Messages Area */}
-            <Box
-              sx={{
-                flexGrow: 1,
-                overflow: 'auto',
-                p: 2,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-              }}
-            >
-              {selectedConversation ? (
-                selectedConversation.messages.map((message) => (
-                  <Box
-                    key={message.id}
-                    sx={{
-                      display: 'flex',
-                      justifyContent: message.senderId === user?.id ? 'flex-end' : 'flex-start',
-                    }}
-                  >
+          <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {selectedConversation ? (
+              <>
+                {/* Messages Container */}
+                <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
+                  {messages.map((message) => (
                     <Box
+                      key={message.id}
                       sx={{
-                        maxWidth: '70%',
-                        backgroundColor:
-                          message.senderId === user?.id ? 'primary.main' : 'grey.100',
-                        color: message.senderId === user?.id ? 'white' : 'text.primary',
-                        borderRadius: 2,
-                        p: 2,
+                        display: 'flex',
+                        justifyContent: message.senderId === user?.uid ? 'flex-end' : 'flex-start',
+                        mb: 2,
                       }}
                     >
-                      <Typography variant="body1">{message.content}</Typography>
-                      <Typography
-                        variant="caption"
+                      <Paper
                         sx={{
-                          display: 'block',
-                          textAlign: 'right',
-                          mt: 0.5,
-                          opacity: 0.8,
+                          p: 2,
+                          maxWidth: '70%',
+                          bgcolor: message.senderId === user?.uid ? 'primary.main' : 'grey.100',
+                          color: message.senderId === user?.uid ? 'white' : 'inherit',
                         }}
                       >
-                        {formatMessageTime(message.timestamp)}
-                      </Typography>
+                        <Typography variant="body1">{message.content}</Typography>
+                        <Typography variant="caption" display="block" sx={{ mt: 0.5, opacity: 0.8 }}>
+                          {message.timestamp.toDate().toLocaleTimeString()}
+                        </Typography>
+                      </Paper>
                     </Box>
-                  </Box>
-                ))
-              ) : (
-                <Typography variant="body2" color="text.secondary" align="center">
+                  ))}
+                  <div ref={messagesEndRef} />
+                </Box>
+
+                {/* Message Input */}
+                <Box sx={{ p: 2, bgcolor: 'background.paper' }}>
+                  <Grid container spacing={2}>
+                    <Grid item xs>
+                      <TextField
+                        fullWidth
+                        multiline
+                        maxRows={4}
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        placeholder="Type a message..."
+                      />
+                    </Grid>
+                    <Grid item>
+                      <IconButton
+                        color="primary"
+                        onClick={handleSendMessage}
+                        disabled={!newMessage.trim()}
+                      >
+                        <SendIcon />
+                      </IconButton>
+                    </Grid>
+                  </Grid>
+                </Box>
+              </>
+            ) : (
+              <Box
+                sx={{
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Typography variant="h6" color="text.secondary">
                   Select a conversation to start messaging
                 </Typography>
-              )}
-              <div ref={messagesEndRef} />
-            </Box>
-
-            {/* Message Input */}
-            <Box
-              component="form"
-              onSubmit={handleSendMessage}
-              sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}
-            >
-              <Grid container spacing={2}>
-                <Grid item xs>
-                  <TextField
-                    fullWidth
-                    placeholder="Type a message"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    disabled={!selectedConversation}
-                  />
-                </Grid>
-                <Grid item>
-                  <IconButton
-                    color="primary"
-                    type="submit"
-                    disabled={!selectedConversation || !newMessage.trim()}
-                  >
-                    <SendIcon />
-                  </IconButton>
-                </Grid>
-              </Grid>
-            </Box>
+              </Box>
+            )}
           </Paper>
         </Grid>
       </Grid>

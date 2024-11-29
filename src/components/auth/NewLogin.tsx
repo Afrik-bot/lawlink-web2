@@ -19,7 +19,7 @@ import {
   Email as EmailIcon,
   Lock as LockIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../contexts/AuthContext';
 
 export const NewLogin = () => {
   const navigate = useNavigate();

@@ -1,9 +1,8 @@
-import { google } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
 import { addMinutes } from 'date-fns';
 import { db } from '../config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { SessionSchedule } from './SessionService';
+import axios from 'axios';
 
 interface CalendarCredentials {
   provider: 'google' | 'outlook';
@@ -21,15 +20,7 @@ interface CalendarEvent {
 }
 
 export class CalendarService {
-  private googleAuth: OAuth2Client;
-
-  constructor() {
-    this.googleAuth = new OAuth2Client({
-      clientId: process.env.REACT_APP_GOOGLE_CLIENT_ID,
-      clientSecret: process.env.REACT_APP_GOOGLE_CLIENT_SECRET,
-      redirectUri: `${window.location.origin}/auth/google/callback`,
-    });
-  }
+  private readonly GOOGLE_CALENDAR_API = 'https://www.googleapis.com/calendar/v3';
 
   async addToGoogleCalendar(session: SessionSchedule, userEmail: string): Promise<string> {
     try {
@@ -42,72 +33,89 @@ export class CalendarService {
         throw new Error('Google Calendar not connected');
       }
 
-      // Set up auth
-      this.googleAuth.setCredentials({
-        access_token: credentials.accessToken,
-        refresh_token: credentials.refreshToken,
-        expiry_date: credentials.expiryDate,
-      });
-
-      const calendar = google.calendar({ version: 'v3', auth: this.googleAuth });
-
-      // Create calendar event
       const event = {
-        summary: session.title,
-        description: session.description,
+        summary: `LawLink Session with ${session.consultantName}`,
+        description: session.description || 'Legal consultation session',
         start: {
-          dateTime: session.scheduledStartTime.toDate().toISOString(),
+          dateTime: session.startTime,
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         },
         end: {
-          dateTime: session.scheduledEndTime.toDate().toISOString(),
+          dateTime: addMinutes(new Date(session.startTime), session.duration).toISOString(),
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         },
         attendees: [{ email: userEmail }],
         reminders: {
-          useDefault: false,
-          overrides: [
-            { method: 'email', minutes: 24 * 60 }, // 1 day before
-            { method: 'popup', minutes: 30 }, // 30 minutes before
-          ],
-        },
-        conferenceData: {
-          createRequest: {
-            requestId: session.id,
-            conferenceSolutionKey: { type: 'hangoutsMeet' },
-          },
+          useDefault: true,
         },
       };
 
-      const response = await calendar.events.insert({
-        calendarId: 'primary',
-        requestBody: event,
-        conferenceDataVersion: 1,
-      });
+      const response = await axios.post(
+        `${this.GOOGLE_CALENDAR_API}/calendars/primary/events`,
+        event,
+        {
+          headers: {
+            Authorization: `Bearer ${credentials.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-      // Store calendar event reference
+      const eventId = response.data.id;
+
+      // Store the calendar event reference
       const calendarEvent: CalendarEvent = {
-        id: `google_${response.data.id}`,
+        id: `${session.id}-google`,
         provider: 'google',
-        eventId: response.data.id!,
+        eventId,
         sessionId: session.id,
         createdAt: new Date(),
       };
 
-      await updateDoc(doc(db, 'sessions', session.id), {
-        calendarEvents: {
-          google: calendarEvent,
-        },
+      await updateDoc(doc(db, 'users', session.clientId), {
+        calendarEvents: [...(userData?.calendarEvents || []), calendarEvent],
       });
 
-      return response.data.id!;
+      return eventId;
     } catch (error) {
-      console.error('Error adding to Google Calendar:', error);
+      console.error('Error adding event to Google Calendar:', error);
       throw error;
     }
   }
 
-  // Add Outlook calendar integration here
+  async removeFromGoogleCalendar(eventId: string, userId: string): Promise<void> {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      const userData = userDoc.data();
+      const credentials = userData?.calendarCredentials?.google as CalendarCredentials;
+
+      if (!credentials) {
+        throw new Error('Google Calendar not connected');
+      }
+
+      await axios.delete(
+        `${this.GOOGLE_CALENDAR_API}/calendars/primary/events/${eventId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${credentials.accessToken}`,
+          },
+        }
+      );
+
+      // Remove the calendar event reference
+      const updatedEvents = (userData?.calendarEvents || []).filter(
+        (event: CalendarEvent) => event.eventId !== eventId
+      );
+
+      await updateDoc(doc(db, 'users', userId), {
+        calendarEvents: updatedEvents,
+      });
+    } catch (error) {
+      console.error('Error removing event from Google Calendar:', error);
+      throw error;
+    }
+  }
+
   async addToOutlookCalendar(session: SessionSchedule, userEmail: string): Promise<string> {
     // TODO: Implement Outlook calendar integration
     throw new Error('Outlook calendar integration not implemented yet');
@@ -124,25 +132,7 @@ export class CalendarService {
       }
 
       if (provider === 'google') {
-        const userDoc = await getDoc(doc(db, 'users', session.clientId));
-        const userData = userDoc.data();
-        const credentials = userData?.calendarCredentials?.google as CalendarCredentials;
-
-        if (!credentials) {
-          throw new Error('Google Calendar not connected');
-        }
-
-        this.googleAuth.setCredentials({
-          access_token: credentials.accessToken,
-          refresh_token: credentials.refreshToken,
-          expiry_date: credentials.expiryDate,
-        });
-
-        const calendar = google.calendar({ version: 'v3', auth: this.googleAuth });
-        await calendar.events.delete({
-          calendarId: 'primary',
-          eventId: calendarEvent.eventId,
-        });
+        await this.removeFromGoogleCalendar(calendarEvent.eventId, session.clientId);
       }
 
       // Remove calendar event reference

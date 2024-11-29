@@ -28,7 +28,7 @@ import {
   Event as EventIcon,
   ExitToApp as LogoutIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../contexts/AuthContext';
 
 const drawerWidth = 240;
 

@@ -1,9 +1,22 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator, enableIndexedDbPersistence } from 'firebase/firestore';
-import { getStorage, connectStorageEmulator } from 'firebase/storage';
-import { getAnalytics } from 'firebase/analytics';
+import { 
+  getAuth, 
+  signOut, 
+  onAuthStateChanged, 
+  Auth,
+  signInAnonymously,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  enableIndexedDbPersistence, 
+  enableMultiTabIndexedDbPersistence, 
+  Firestore 
+} from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
+import { getAnalytics, Analytics } from 'firebase/analytics';
 
+// Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
   authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
@@ -11,42 +24,48 @@ const firebaseConfig = {
   storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.REACT_APP_FIREBASE_APP_ID,
-  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase
+// Log environment info (without sensitive data)
+console.log('Environment:', {
+  NODE_ENV: process.env.NODE_ENV,
+  hasApiKey: !!firebaseConfig.apiKey,
+  hasAuthDomain: !!firebaseConfig.authDomain,
+  hasProjectId: !!firebaseConfig.projectId,
+  hasStorageBucket: !!firebaseConfig.storageBucket,
+  hasMessagingSenderId: !!firebaseConfig.messagingSenderId,
+  hasAppId: !!firebaseConfig.appId,
+  hasMeasurementId: !!firebaseConfig.measurementId,
+});
+
+// Initialize Firebase app
+console.log('Initializing Firebase app...');
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firebase services
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-export const analytics = getAnalytics(app);
+// Initialize services
+console.log('Initializing Firebase services...');
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+let analytics: Analytics | undefined;
 
-// Connect to emulators in development
-if (process.env.NODE_ENV === 'development') {
-  try {
-    connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-    connectFirestoreEmulator(db, 'localhost', 8080);
-    connectStorageEmulator(storage, 'localhost', 9199);
-  } catch (error) {
-    console.error('Error connecting to Firebase emulators:', error);
-  }
+// Only initialize analytics in production
+if (process.env.NODE_ENV === 'production') {
+  analytics = getAnalytics(app);
 }
 
-// Enable persistence for Firestore
+// Enable offline persistence for Firestore
 if (typeof window !== 'undefined') {
-  try {
-    enableIndexedDbPersistence(db).catch((err) => {
-      if (err.code === 'failed-precondition') {
-        console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-      } else if (err.code === 'unimplemented') {
-        console.warn('The current browser does not support persistence.');
-      }
-    });
-  } catch (error) {
-    console.error('Error enabling persistence:', error);
-  }
+  enableMultiTabIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      // Multiple tabs open, persistence can only be enabled in one tab at a time
+      console.log('Multiple tabs open, persistence enabled in first tab only');
+    } else if (err.code === 'unimplemented') {
+      // The current browser doesn't support persistence
+      console.log('Current browser does not support persistence');
+    }
+  });
 }
 
-export default app;
+export { app, auth, db, storage, analytics };

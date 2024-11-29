@@ -48,41 +48,74 @@ export const Login: React.FC = () => {
   const [verificationCode, setVerificationCode] = useState('');
   const [verificationId, setVerificationId] = useState('');
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
   };
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const success = await handleEmailLogin(email, password);
-    if (success) {
-      navigate('/dashboard');
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      const success = await handleGoogleLogin();
+      if (success) {
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      // Error is already handled in useAuth hook
+      console.error('Google sign-in error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleGoogleSubmit = async () => {
-    const success = await handleGoogleLogin();
-    if (success) {
-      navigate('/dashboard');
+  const handleEmailSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const success = await handleEmailLogin(email, password);
+      if (success) {
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      // Error is already handled in useAuth hook
+      console.error('Email sign-in error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
-    const vid = await handlePhoneLogin(formattedPhone);
-    if (vid) {
-      setVerificationId(vid);
-      setShowVerificationDialog(true);
+    setIsLoading(true);
+    try {
+      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+      const vid = await handlePhoneLogin(formattedPhone);
+      if (vid) {
+        setVerificationId(vid);
+        setShowVerificationDialog(true);
+      }
+    } catch (error) {
+      // Error is already handled in useAuth hook
+      console.error('Phone sign-in error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleVerificationSubmit = async () => {
-    const success = await confirmPhoneLogin(verificationId, verificationCode);
-    if (success) {
-      setShowVerificationDialog(false);
-      navigate('/dashboard');
+    setIsLoading(true);
+    try {
+      const success = await confirmPhoneLogin(verificationId, verificationCode);
+      if (success) {
+        setShowVerificationDialog(false);
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      // Error is already handled in useAuth hook
+      console.error('Verification error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -131,7 +164,7 @@ export const Login: React.FC = () => {
         </Tabs>
 
         <TabPanel value={activeTab} index={0}>
-          <form onSubmit={handleEmailSubmit}>
+          <form onSubmit={handleEmailSignIn}>
             <TextField
               fullWidth
               label="Email"
@@ -156,8 +189,9 @@ export const Login: React.FC = () => {
               variant="contained"
               color="primary"
               sx={{ mt: 2 }}
+              disabled={isLoading}
             >
-              Sign In with Email
+              {isLoading ? 'Signing in...' : 'Sign In with Email'}
             </Button>
           </form>
         </TabPanel>
@@ -166,7 +200,7 @@ export const Login: React.FC = () => {
           <Button
             fullWidth
             variant="contained"
-            onClick={handleGoogleSubmit}
+            onClick={handleGoogleSignIn}
             startIcon={<GoogleIcon />}
             sx={{
               bgcolor: '#ffffff',
@@ -191,8 +225,9 @@ export const Login: React.FC = () => {
               letterSpacing: '0.25px',
               height: '48px',
             }}
+            disabled={isLoading}
           >
-            Sign in with Google
+            {isLoading ? 'Signing in...' : 'Sign in with Google'}
           </Button>
           {error && (
             <Typography color="error" variant="body2" sx={{ mt: 2, textAlign: 'center' }}>
@@ -219,8 +254,9 @@ export const Login: React.FC = () => {
               variant="contained"
               color="primary"
               sx={{ mt: 2 }}
+              disabled={isLoading}
             >
-              Send Verification Code
+              {isLoading ? 'Sending code...' : 'Send Verification Code'}
             </Button>
           </form>
         </TabPanel>
@@ -253,8 +289,8 @@ export const Login: React.FC = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setShowVerificationDialog(false)}>Cancel</Button>
-            <Button onClick={handleVerificationSubmit} color="primary">
-              Verify
+            <Button onClick={handleVerificationSubmit} color="primary" disabled={isLoading}>
+              {isLoading ? 'Verifying...' : 'Verify'}
             </Button>
           </DialogActions>
         </Dialog>

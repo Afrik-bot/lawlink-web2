@@ -8,9 +8,13 @@ import {
   TextField,
   Box,
   Typography,
-  CircularProgress,
   Alert,
+  InputAdornment,
+  CircularProgress,
 } from '@mui/material';
+import FolderIcon from '@mui/icons-material/Folder';
+import CloseIcon from '@mui/icons-material/Close';
+import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import { Folder } from '../../types/document';
 import documentService from '../../services/documentService';
 
@@ -30,6 +34,7 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async () => {
     if (!name.trim()) {
@@ -39,18 +44,29 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({
 
     setLoading(true);
     setError(null);
+    setSuccess(false);
 
     try {
+      console.log('Creating folder:', name.trim());
       const newFolder = await documentService.createFolder({
         name: name.trim(),
         parentId,
       });
+      console.log('Folder created successfully:', newFolder);
 
-      onFolderCreated?.(newFolder);
-      onClose();
-    } catch (err) {
-      setError('Failed to create folder. Please try again.');
+      setSuccess(true);
+      if (onFolderCreated) {
+        onFolderCreated(newFolder);
+      }
+      
+      // Close dialog after a brief delay to show success state
+      setTimeout(() => {
+        handleClose();
+      }, 1000);
+    } catch (err: unknown) {
       console.error('Error creating folder:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create folder. Please try again.');
+      setSuccess(false);
     } finally {
       setLoading(false);
     }
@@ -59,12 +75,18 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({
   const handleClose = () => {
     setName('');
     setError(null);
+    setSuccess(false);
     onClose();
   };
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Create New Folder</DialogTitle>
+      <DialogTitle>
+        <Box display="flex" alignItems="center">
+          <FolderIcon sx={{ mr: 1, color: 'primary.main' }} />
+          Create New Folder
+        </Box>
+      </DialogTitle>
       <DialogContent>
         <Box sx={{ mb: 2 }}>
           <Typography variant="body2" color="textSecondary" gutterBottom>
@@ -75,31 +97,50 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({
         <TextField
           label="Folder Name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            setError(null); // Clear error when user types
+          }}
           fullWidth
           required
-          error={!name.trim()}
-          helperText={!name.trim() ? 'Name is required' : ''}
-          disabled={loading}
+          error={!!error}
+          helperText={error || ' '}
+          disabled={loading || success}
           autoFocus
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <FolderIcon color="action" />
+              </InputAdornment>
+            ),
+          }}
         />
 
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {error}
+        {success && (
+          <Alert severity="success" sx={{ mt: 2 }}>
+            Folder created successfully!
           </Alert>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={loading}>
+        <Button 
+          onClick={handleClose} 
+          disabled={loading}
+          startIcon={<CloseIcon />}
+        >
           Cancel
         </Button>
         <Button
           onClick={handleSubmit}
+          disabled={!name.trim() || loading || success}
           variant="contained"
-          disabled={loading || !name.trim()}
+          startIcon={loading ? (
+            <CircularProgress size={20} color="inherit" />
+          ) : (
+            <CreateNewFolderIcon />
+          )}
         >
-          {loading ? <CircularProgress size={24} /> : 'Create'}
+          {success ? 'Created!' : 'Create Folder'}
         </Button>
       </DialogActions>
     </Dialog>

@@ -22,24 +22,11 @@ import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format, addMinutes, isAfter, isBefore, startOfDay } from 'date-fns';
-import axios from 'axios';
+import appointmentService, { AppointmentType, TimeSlot } from '../../services/AppointmentService';
 
 interface AppointmentSchedulerProps {
   consultantId: string;
   userId: string;
-}
-
-interface TimeSlot {
-  start: Date;
-  end: Date;
-  available: boolean;
-}
-
-interface AppointmentType {
-  id: string;
-  name: string;
-  duration: number;
-  price: number;
 }
 
 const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
@@ -68,8 +55,8 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
 
   const loadAppointmentTypes = async () => {
     try {
-      const response = await axios.get(`/api/consultants/${consultantId}/appointment-types`);
-      setAppointmentTypes(response.data);
+      const types = await appointmentService.getAppointmentTypes(consultantId);
+      setAppointmentTypes(types);
     } catch (error) {
       console.error('Failed to load appointment types:', error);
       setError('Failed to load appointment types');
@@ -79,15 +66,8 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
   const loadTimeSlots = async (date: Date) => {
     setLoading(true);
     try {
-      const response = await axios.get(
-        `/api/consultants/${consultantId}/availability`,
-        {
-          params: {
-            date: format(date, 'yyyy-MM-dd')
-          }
-        }
-      );
-      setTimeSlots(response.data);
+      const slots = await appointmentService.getAvailableTimeSlots(consultantId, date);
+      setTimeSlots(slots);
     } catch (error) {
       console.error('Failed to load time slots:', error);
       setError('Failed to load available time slots');
@@ -105,12 +85,12 @@ const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({
     if (!selectedSlot || !selectedType) return;
 
     try {
-      await axios.post('/api/appointments', {
+      await appointmentService.createAppointment({
         consultantId,
-        userId,
+        clientId: userId,
         appointmentTypeId: selectedType,
-        startTime: selectedSlot.start,
-        endTime: selectedSlot.end,
+        startTime: Timestamp.fromDate(selectedSlot.start),
+        endTime: Timestamp.fromDate(selectedSlot.end),
         notes
       });
 

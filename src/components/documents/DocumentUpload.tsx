@@ -10,15 +10,19 @@ import {
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
+  ListItemIcon,
   useTheme,
   alpha,
+  Snackbar,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
   Close as CloseIcon,
-  CheckCircle as SuccessIcon,
   Error as ErrorIcon,
   Delete as DeleteIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { useDropzone } from 'react-dropzone';
@@ -64,6 +68,28 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
   const uploadsRef = useRef<Map<string, UploadProgress>>(uploads);
   uploadsRef.current = uploads;
 
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info';
+  }>({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
+
+  const handleSnackbarClose = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  const showSnackbar = (message: string, severity: 'success' | 'error' | 'info') => {
+    setSnackbar({
+      open: true,
+      message,
+      severity
+    });
+  };
+
   const updateUploadProgress = useCallback((progress: UploadProgress) => {
     setUploads(prev => {
       const newMap = new Map(prev);
@@ -78,7 +104,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
     const oversizedFiles = acceptedFiles.filter(file => file.size > maxFileSize);
 
     if (oversizedFiles.length > 0) {
-      console.error(`${oversizedFiles.length} files exceed the size limit of ${maxFileSize / 1024 / 1024}MB`);
+      showSnackbar(`${oversizedFiles.length} files exceed the size limit of ${maxFileSize / 1024 / 1024}MB`, 'error');
     }
 
     for (const file of validFiles) {
@@ -90,25 +116,45 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
           status: 'pending',
         });
 
+        showSnackbar(`Starting upload: ${file.name}`, 'info');
+
         // Set up progress listener
-        documentService.on('uploadProgress', (progress: UploadProgress) => {
+        const handleProgress = (progress: UploadProgress) => {
           if (progress.file.name === file.name) {
             updateUploadProgress(progress);
+            if (progress.status === 'completed') {
+              showSnackbar(`Successfully uploaded: ${file.name}`, 'success');
+              // Only call onUploadComplete if we have both the callback and the document
+              if (onUploadComplete && progress.document) {
+                onUploadComplete(progress.document);
+              }
+            } else if (progress.status === 'error') {
+              showSnackbar(`Failed to upload: ${file.name}`, 'error');
+            }
           }
-        });
+        };
+
+        documentService.on('uploadProgress', handleProgress);
 
         // Upload file
         const document = await documentService.uploadDocument(file, folderId);
         
-        // Notify parent component
-        onUploadComplete?.(document);
-      } catch (error) {
+        // Clean up progress listener
+        documentService.off('uploadProgress', handleProgress);
+
+        // Notify parent component with the document from the upload response
+        if (onUploadComplete && document) {
+          onUploadComplete(document);
+        }
+      } catch (error: unknown) {
         console.error(`Error uploading ${file.name}:`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        showSnackbar(`Error uploading ${file.name}: ${errorMessage}`, 'error');
         updateUploadProgress({
           file,
           progress: 0,
           status: 'error',
-          error: error.message,
+          error: errorMessage,
         });
       }
     }
@@ -139,17 +185,6 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
       newMap.delete(fileName);
       return newMap;
     });
-  };
-
-  const getStatusIcon = (status: UploadProgress['status']) => {
-    switch (status) {
-      case 'completed':
-        return <SuccessIcon color="success" />;
-      case 'error':
-        return <ErrorIcon color="error" />;
-      default:
-        return null;
-    }
   };
 
   return (
@@ -184,10 +219,26 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
           {Array.from(uploads.entries()).map(([fileName, upload]) => (
             <FileProgress key={fileName} elevation={1}>
               <ListItem>
+                <ListItemIcon>
+                  {upload.status === 'completed' ? (
+                    <CheckCircleIcon color="success" />
+                  ) : upload.status === 'error' ? (
+                    <ErrorIcon color="error" />
+                  ) : (
+                    <CircularProgress
+                      variant="determinate"
+                      value={upload.progress}
+                      size={24}
+                    />
+                  )}
+                </ListItemIcon>
                 <ListItemText
                   primary={fileName}
                   secondary={
-                    upload.error || `${Math.round(upload.progress)}% ${upload.status}`
+                    upload.error || 
+                    (upload.status === 'completed' 
+                      ? 'Upload complete'
+                      : `${Math.round(upload.progress)}% - ${upload.status}`)
                   }
                   secondaryTypographyProps={{
                     color: upload.error ? 'error' : 'textSecondary',
@@ -213,17 +264,26 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
                   )}
                 </ListItemSecondaryAction>
               </ListItem>
-              {upload.status === 'uploading' && (
-                <LinearProgress
-                  variant="determinate"
-                  value={upload.progress}
-                  sx={{ mt: 1 }}
-                />
-              )}
             </FileProgress>
           ))}
         </List>
       )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleSnackbarClose} 
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
