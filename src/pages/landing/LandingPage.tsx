@@ -1,11 +1,21 @@
-import React, { Suspense, lazy } from 'react';
-import { Box, Container, Typography, Button, useTheme, useMediaQuery, Grid, Paper, ButtonProps, alpha, CircularProgress } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import React from 'react';
+import Box from '@mui/material/Box';
+import Container from '@mui/material/Container';
+import Typography from '@mui/material/Typography';
+import Button, { ButtonProps } from '@mui/material/Button';
+import { useTheme, useMediaQuery } from '@mui/material';
+import Grid from '@mui/material/Grid';
+import Paper from '@mui/material/Paper';
 import { styled } from '@mui/material/styles';
-import { Balance, Gavel, Security } from '@mui/icons-material';
-import Footer from '../../components/Footer';
+import Balance from '@mui/icons-material/Balance';
+import Gavel from '@mui/icons-material/Gavel';
+import Security from '@mui/icons-material/Security';
+import CircularProgress from '@mui/material/CircularProgress';
+import { Link as RouterLink } from 'react-router-dom';
 
-const SubscriptionManager = lazy(() => import('../../components/Pricing/SubscriptionManager'));
+// Lazy load less critical components
+const Footer = React.lazy(() => import('../../components/Footer'));
+const SubscriptionPlans = React.lazy(() => import('../../components/subscription/SubscriptionPlans'));
 
 const HeroSection = styled(Box)(({ theme }) => ({
   position: 'relative',
@@ -26,9 +36,9 @@ const HeroSection = styled(Box)(({ theme }) => ({
     bottom: 0,
     background: `
       linear-gradient(135deg, 
-        ${alpha('#1B365D', 0.05)} 0%,
-        ${alpha(theme.palette.background.paper, 0.98)} 50%,
-        ${alpha('#7C3030', 0.05)} 100%
+        ${theme.palette.background.paper} 0%,
+        ${theme.palette.background.paper} 50%,
+        ${theme.palette.background.paper} 100%
       )
     `,
     zIndex: 1,
@@ -90,6 +100,11 @@ const LogoText = styled(Typography)(({ theme }) => ({
   },
 }));
 
+interface StyledButtonProps extends ButtonProps {
+  to?: string;
+  component?: React.ElementType;
+}
+
 const StyledButton = styled(Button)<StyledButtonProps>(({ theme }) => ({
   borderRadius: 28,
   padding: '10px 24px',
@@ -141,10 +156,6 @@ const FeatureCard = styled(Paper)(({ theme }) => ({
     transform: 'translateY(-5px)',
   },
 }));
-
-interface StyledButtonProps extends ButtonProps {
-  to?: string;
-}
 
 const LandingPage: React.FC = () => {
   const theme = useTheme();
@@ -203,7 +214,7 @@ const LandingPage: React.FC = () => {
                   Connect with qualified legal professionals for personalized consultation and guidance in a secure, confidential environment.
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 2, justifyContent: isMobile ? 'center' : 'flex-start', mt: 4 }}>
-                  <Button
+                  <StyledButton
                     component={RouterLink}
                     to="/register"
                     variant="contained"
@@ -216,8 +227,8 @@ const LandingPage: React.FC = () => {
                     }}
                   >
                     Get Started
-                  </Button>
-                  <Button
+                  </StyledButton>
+                  <StyledButton
                     component={RouterLink}
                     to="/login"
                     variant="outlined"
@@ -230,7 +241,7 @@ const LandingPage: React.FC = () => {
                     }}
                   >
                     Sign In
-                  </Button>
+                  </StyledButton>
                 </Box>
               </Box>
             </Grid>
@@ -282,19 +293,21 @@ const LandingPage: React.FC = () => {
           >
             Choose Your Plan
           </Typography>
-          <Suspense 
+          <React.Suspense 
             fallback={
               <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
                 <CircularProgress />
               </Box>
             }
           >
-            <SubscriptionManager />
-          </Suspense>
+            <SubscriptionPlans />
+          </React.Suspense>
         </Container>
       </Box>
 
-      <Footer />
+      <React.Suspense fallback={null}>
+        <Footer />
+      </React.Suspense>
     </Box>
   );
 };

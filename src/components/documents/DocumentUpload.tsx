@@ -99,6 +99,11 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
   }, []);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    if (!folderId) {
+      showSnackbar('No folder selected for upload', 'error');
+      return;
+    }
+
     // Filter out files that exceed size limit
     const validFiles = acceptedFiles.filter(file => file.size <= maxFileSize);
     const oversizedFiles = acceptedFiles.filter(file => file.size > maxFileSize);
@@ -129,7 +134,12 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
                 onUploadComplete(progress.document);
               }
             } else if (progress.status === 'error') {
-              showSnackbar(`Failed to upload: ${file.name}`, 'error');
+              const errorMessage = progress.error || 'Unknown error';
+              if (errorMessage.includes('permission') || errorMessage.includes('unauthorized')) {
+                showSnackbar(`Permission denied: You don't have access to upload to this folder`, 'error');
+              } else {
+                showSnackbar(`Failed to upload: ${file.name} - ${errorMessage}`, 'error');
+              }
             }
           }
         };
@@ -149,7 +159,11 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
       } catch (error: unknown) {
         console.error(`Error uploading ${file.name}:`, error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-        showSnackbar(`Error uploading ${file.name}: ${errorMessage}`, 'error');
+        if (errorMessage.includes('permission') || errorMessage.includes('unauthorized')) {
+          showSnackbar(`Permission denied: You don't have access to upload to this folder`, 'error');
+        } else {
+          showSnackbar(`Error uploading ${file.name}: ${errorMessage}`, 'error');
+        }
         updateUploadProgress({
           file,
           progress: 0,

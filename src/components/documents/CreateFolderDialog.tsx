@@ -65,7 +65,12 @@ const CreateFolderDialog: React.FC<CreateFolderDialogProps> = ({
       }, 1000);
     } catch (err: unknown) {
       console.error('Error creating folder:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create folder. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create folder. Please try again.';
+      if (errorMessage.includes('permission') || errorMessage.includes('unauthorized')) {
+        setError('You do not have permission to create folders in this location');
+      } else {
+        setError(errorMessage);
+      }
       setSuccess(false);
     } finally {
       setLoading(false);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   AppBar,
   Box,
@@ -32,10 +32,14 @@ import { useAuth } from '../contexts/AuthContext';
 
 const drawerWidth = 240;
 
-const Layout = () => {
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+const Layout: React.FC<LayoutProps> = ({ children }) => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { user, handleLogout } = useAuth();
+  const { user, logout } = useAuth();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -52,10 +56,14 @@ const Layout = () => {
     setAnchorEl(null);
   };
 
-  const handleLogoutClick = () => {
-    handleLogout();
-    handleProfileMenuClose();
-    navigate('/login');
+  const handleLogoutClick = async () => {
+    try {
+      await logout();
+      handleProfileMenuClose();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
   const menuItems = [
@@ -189,7 +197,7 @@ const Layout = () => {
         }}
       >
         <Toolbar />
-        <Outlet />
+        {children}
       </Box>
     </Box>
   );

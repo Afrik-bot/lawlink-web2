@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Paper,
@@ -52,7 +52,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [selectedItem, setSelectedItem] = useState<Document | Folder | null>(null);
 
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -87,19 +87,33 @@ const DocumentList: React.FC<DocumentListProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [folderId]);
 
   // Load documents on mount and when folderId changes
   useEffect(() => {
     loadDocuments();
-  }, [folderId]);
+  }, [folderId, loadDocuments]);
 
-  // Reload documents when a new document is uploaded
+  // Handle document upload completion
+  const handleUploadComplete = useCallback((document: Document) => {
+    console.log('Upload completed, handling document:', document);
+    setDocuments(prev => [...prev, document]);
+    onUploadComplete?.(document);
+  }, [onUploadComplete]);
+
+  // Handle folder creation
+  const handleFolderCreated = useCallback((folder: Folder) => {
+    console.log('Folder created, handling folder:', folder);
+    setFolders(prev => [...prev, folder]);
+    onFolderCreated?.(folder);
+  }, [onFolderCreated]);
+
+  // Listen for upload events
   useEffect(() => {
-    const handleUploadProgress = (progress: UploadProgress) => {
-      if (progress.status === 'completed') {
-        console.log('Upload completed, reloading documents');
-        loadDocuments();
+    const handleUploadProgress = (event: { status: string; document?: Document }) => {
+      if (event.status === 'completed' && event.document) {
+        console.log('Upload completed with document:', event.document);
+        handleUploadComplete(event.document);
       }
     };
 
@@ -107,20 +121,20 @@ const DocumentList: React.FC<DocumentListProps> = ({
     return () => {
       documentService.off('uploadProgress', handleUploadProgress);
     };
-  }, []);
+  }, [handleUploadComplete]);
 
-  // Reload documents when a new folder is created
+  // Listen for folder creation events
   useEffect(() => {
-    const handleFolderCreated = () => {
-      console.log('Folder created, reloading documents');
-      loadDocuments();
+    const handleFolderCreatedEvent = (event: Folder) => {
+      console.log('Folder created event received:', event);
+      handleFolderCreated(event);
     };
 
-    documentService.on('folderCreated', handleFolderCreated);
+    documentService.on('folderCreated', handleFolderCreatedEvent);
     return () => {
-      documentService.off('folderCreated', handleFolderCreated);
+      documentService.off('folderCreated', handleFolderCreatedEvent);
     };
-  }, []);
+  }, [handleFolderCreated]);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, item: Document | Folder) => {
     event.stopPropagation();

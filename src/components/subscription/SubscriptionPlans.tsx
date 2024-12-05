@@ -14,30 +14,39 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import { legalConsultantPlans } from '../../config/subscriptionPlans';
+import { legalConsultantPlans, SubscriptionPlan } from '../../config/subscriptionPlans';
 import { mockPaymentService } from '../../services/MockPaymentService';
 import { useNavigate } from 'react-router-dom';
 
-export const SubscriptionPlans: React.FC = () => {
-  const [selectedPlan, setSelectedPlan] = useState(null);
+interface PaymentDetails {
+  cardNumber: string;
+  expiryDate: string;
+  cvv: string;
+  name: string;
+}
+
+const SubscriptionPlans: React.FC = () => {
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const [paymentDetails, setPaymentDetails] = useState({
+  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({
     cardNumber: '',
     expiryDate: '',
     cvv: '',
     name: '',
   });
 
-  const handlePlanSelect = (plan) => {
+  const handlePlanSelect = (plan: SubscriptionPlan) => {
     setSelectedPlan(plan);
     setPaymentDialogOpen(true);
   };
 
   const handlePaymentSubmit = async () => {
+    if (!selectedPlan) return;
+    
     setLoading(true);
     setError(null);
 
@@ -48,8 +57,8 @@ export const SubscriptionPlans: React.FC = () => {
       localStorage.setItem('subscriptionActive', 'true');
       setPaymentDialogOpen(false);
       navigate('/dashboard');
-    } catch (err) {
-      setError(err.message || 'Payment failed. Please try again.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Payment failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -200,3 +209,5 @@ export const SubscriptionPlans: React.FC = () => {
     </Box>
   );
 };
+
+export default SubscriptionPlans;

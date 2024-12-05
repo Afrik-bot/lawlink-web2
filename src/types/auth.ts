@@ -1,18 +1,22 @@
-export type UserRole = 'client' | 'consultant' | 'admin';
+import { UserRole, UserProfile, LegalCredentials } from './user';
 
-export interface User {
-  uid: string;
+export type { UserRole };
+
+export interface User extends UserProfile {}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  loading: boolean;
+  error: string | null;
+  rememberMe: boolean;
+}
+
+export interface LoginData {
   email: string;
-  displayName: string;
-  firstName: string;
-  lastName: string;
-  role: UserRole;
-  phoneNumber: string | null;
-  barNumber: string | null;
-  legalCredentials: string;
-  createdAt: string;
-  updatedAt: string;
-  photoURL: string | null;
+  password: string;
+  rememberMe?: boolean;
 }
 
 export interface RegisterData {
@@ -21,44 +25,26 @@ export interface RegisterData {
   firstName: string;
   lastName: string;
   role: UserRole;
-  phoneNumber?: string;
-  barNumber?: string;
-  legalCredentials: string;
-}
-
-export interface LoginData {
-  email: string;
-  password: string;
-}
-
-export interface PhoneLoginData {
   phoneNumber: string;
-  verificationCode: string;
+  legalCredentials?: LegalCredentials;
+  rememberMe?: boolean;
 }
 
-export interface PhoneVerificationData {
-  verificationId: string;
-  code: string;
+export interface AuthResponse {
+  user: User;
+  token: string;
+  rememberMe: boolean;
 }
 
-export interface AuthState {
+export interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
+  rememberMe: boolean;
+  login: (data: LoginData) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
+  logout: () => void;
+  clearError: () => void;
 }
-
-// Default values for new users
-export const DEFAULT_USER_DATA: Omit<User, 'uid' | 'email'> = {
-  displayName: 'New User',
-  firstName: 'New',
-  lastName: 'User',
-  role: 'client',
-  phoneNumber: null,
-  barNumber: null,
-  legalCredentials: '',
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-  photoURL: null,
-};

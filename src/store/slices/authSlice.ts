@@ -1,12 +1,16 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from '../../utils/axiosConfig';
 import { sessionManager } from '../../utils/sessionManager';
 import { credentialsManager } from '../../utils/credentialsManager';
 import { API_BASE_URL } from '../../config';
-import { AuthState, LoginData, RegisterData, User } from '../../types/auth';
+import { AuthState, LoginData, RegisterData, User, AuthResponse } from '../../types/auth';
 
 // Async thunks
-export const register = createAsyncThunk<User, RegisterData & { rememberMe: boolean }>(
+export const register = createAsyncThunk<
+  AuthResponse,
+  RegisterData & { rememberMe: boolean },
+  { rejectValue: string }
+>(
   'auth/register',
   async (data, { rejectWithValue }) => {
     try {
@@ -19,10 +23,14 @@ export const register = createAsyncThunk<User, RegisterData & { rememberMe: bool
           credentialsManager.saveCredentials(data.email, data.password, true);
         }
       }
-      return response.data.user;
+      return {
+        user: response.data.user,
+        token: response.data.token,
+        rememberMe: !!data.rememberMe
+      };
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.error ||
+                          error.response?.data?.error || 
                           error.response?.data?.errors?.[0]?.msg || 
                           error.message || 
                           'Registration failed. Please try again.';
@@ -32,8 +40,9 @@ export const register = createAsyncThunk<User, RegisterData & { rememberMe: bool
 );
 
 export const login = createAsyncThunk<
-  { user: User; token: string },
-  LoginData & { rememberMe: boolean }
+  AuthResponse,
+  LoginData & { rememberMe: boolean },
+  { rejectValue: string }
 >(
   'auth/login',
   async (data, { rejectWithValue }) => {
@@ -49,7 +58,11 @@ export const login = createAsyncThunk<
           credentialsManager.clearCredentials();
         }
       }
-      return response.data;
+      return {
+        user: response.data.user,
+        token: response.data.token,
+        rememberMe: !!data.rememberMe
+      };
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 
                           error.response?.data?.error || 
@@ -130,22 +143,33 @@ export const resetPassword = createAsyncThunk<
 );
 
 const initialState: AuthState = {
-  user: sessionManager.getUser(),
-  token: sessionManager.getToken(),
-  isAuthenticated: !!sessionManager.getToken(),
+  user: null,
+  token: null,
+  isAuthenticated: false,
   loading: false,
   error: null,
-  rememberMe: credentialsManager.hasStoredCredentials(),
+  rememberMe: false
 };
 
 const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    clearError: (state) => {
+    logoutAction(state) {
+      state.user = null;
+      state.token = null;
+      state.isAuthenticated = false;
+      state.loading = false;
+      state.error = null;
+      state.rememberMe = false;
+    },
+    setError(state, action) {
+      state.error = action.payload;
+    },
+    clearError(state) {
       state.error = null;
     },
-    setRememberMe: (state, action: PayloadAction<boolean>) => {
+    setRememberMe(state, action) {
       state.rememberMe = action.payload;
       if (!action.payload) {
         credentialsManager.clearCredentials();
@@ -161,13 +185,15 @@ const authSlice = createSlice({
       })
       .addCase(register.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload;
+        state.user = action.payload.user;
+        state.token = action.payload.token;
         state.isAuthenticated = true;
         state.error = null;
+        state.rememberMe = action.payload.rememberMe;
       })
       .addCase(register.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload as string;
+        state.error = action.payload || 'Registration failed';
       })
       // Login
       .addCase(login.pending, (state) => {
@@ -180,10 +206,11 @@ const authSlice = createSlice({
         state.token = action.payload.token;
         state.isAuthenticated = true;
         state.error = null;
+        state.rememberMe = action.payload.rememberMe;
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload as string;
+        state.error = action.payload || 'Login failed';
       })
       // Logout
       .addCase(logout.fulfilled, (state) => {
@@ -248,5 +275,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, setRememberMe } = authSlice.actions;
+export const { logoutAction, setError, clearError, setRememberMe } = authSlice.actions;
 export default authSlice.reducer;

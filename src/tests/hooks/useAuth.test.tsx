@@ -1,69 +1,112 @@
 import { renderHook, act } from '@testing-library/react-hooks';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
+import authReducer, { initialState } from '../../store/slices/authSlice';
 import { useAuth } from '../../hooks/useAuth';
-import authReducer from '../../store/slices/authSlice';
+import { AuthState, User, UserRole } from '../../types/auth';
 
-const mockStore = configureStore({
-  reducer: {
-    auth: authReducer,
-  },
-});
+const mockUser: User = {
+  id: '1',
+  email: 'test@example.com',
+  firstName: 'Test',
+  lastName: 'User',
+  role: 'client' as UserRole,
+  phoneNumber: '1234567890',
+  profileCompleted: true,
+  emailVerified: true,
+  createdAt: new Date(),
+  updatedAt: new Date()
+};
 
-const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Provider store={mockStore}>{children}</Provider>
-);
+const mockInitialState: AuthState = {
+  ...initialState,
+  user: mockUser,
+  token: 'mock-token',
+  isAuthenticated: true,
+  rememberMe: false
+};
 
-describe('useAuth', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    mockStore.dispatch({ type: 'auth/logout' });
+describe('useAuth hook', () => {
+  const mockStore = configureStore({
+    reducer: {
+      auth: authReducer
+    },
+    preloadedState: {
+      auth: mockInitialState
+    }
   });
 
-  it('should initialize with default values', () => {
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <Provider store={mockStore}>
+      {children}
+    </Provider>
+  );
+
+  it('should return the current auth state', () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    expect(result.current.user).toBeNull();
-    expect(result.current.token).toBeNull();
-    expect(result.current.isAuthenticated).toBe(false);
-    expect(result.current.isLoading).toBe(false);
+    expect(result.current.user).toEqual(mockUser);
+    expect(result.current.token).toBe('mock-token');
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.loading).toBe(false);
     expect(result.current.error).toBeNull();
+    expect(result.current.rememberMe).toBe(false);
   });
 
   it('should handle login', async () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
 
     await act(async () => {
-      const success = await result.current.handleLogin('test@example.com', 'password123');
-      expect(success).toBe(true);
+      await result.current.login({
+        email: 'test@example.com',
+        password: 'password123',
+        rememberMe: true
+      });
     });
+
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.error).toBeNull();
   });
 
   it('should handle register', async () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
 
     await act(async () => {
-      const success = await result.current.handleRegister({
-        email: 'test@example.com',
+      await result.current.register({
+        email: 'new@example.com',
         password: 'password123',
-        firstName: 'John',
-        lastName: 'Doe',
-        role: 'client',
-        phone: '1234567890',
+        firstName: 'New',
+        lastName: 'User',
+        role: 'client' as UserRole,
+        phoneNumber: '1234567890',
+        rememberMe: true
       });
-      expect(success).toBe(true);
     });
+
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.error).toBeNull();
   });
 
-  it('should handle logout', () => {
+  it('should handle logout', async () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
 
     act(() => {
-      result.current.handleLogout();
+      result.current.logout();
     });
 
     expect(result.current.user).toBeNull();
     expect(result.current.token).toBeNull();
     expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.rememberMe).toBe(false);
+  });
+
+  it('should handle error clearing', () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    act(() => {
+      result.current.clearError();
+    });
+
+    expect(result.current.error).toBeNull();
   });
 });

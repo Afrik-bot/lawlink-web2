@@ -25,6 +25,7 @@ import {
   Person as PersonIcon,
   Schedule as ScheduleIcon,
   VideoCall as VideoCallIcon,
+  ArrowForwardIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -52,14 +53,24 @@ const ClientDashboard = () => {
 
   useEffect(() => {
     const loadDashboardData = async () => {
-      if (!user?.uid) return;
+      if (!user?.uid) {
+        setDashboardData(prev => ({
+          ...prev,
+          loading: false,
+          error: 'User not authenticated',
+        }));
+        return;
+      }
 
       try {
-        // Load upcoming appointments
-        const appointments = await appointmentService.getUpcomingAppointments(user.uid);
+        setDashboardData(prev => ({ ...prev, loading: true, error: null }));
         
-        // Get unread message count from conversations
-        const conversations = await messageService.getConversations(user.uid);
+        // Load data in parallel for better performance
+        const [appointments, conversations] = await Promise.all([
+          appointmentService.getUpcomingAppointments(user.uid),
+          messageService.getConversations(user.uid),
+        ]);
+        
         const unreadCount = conversations.reduce((total, conv) => 
           total + (conv.unreadCount[user.uid] || 0), 0);
 
@@ -74,7 +85,7 @@ const ClientDashboard = () => {
         setDashboardData(prev => ({
           ...prev,
           loading: false,
-          error: 'Failed to load dashboard data',
+          error: 'Failed to load dashboard data. Please try again later.',
         }));
       }
     };
@@ -84,16 +95,43 @@ const ClientDashboard = () => {
 
   if (dashboardData.loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-        <CircularProgress />
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        p: 3,
+        minHeight: '50vh'
+      }}>
+        <CircularProgress size={40} />
+        <Typography variant="body1" sx={{ mt: 2 }}>
+          Loading your dashboard...
+        </Typography>
       </Box>
     );
   }
 
   if (dashboardData.error) {
     return (
-      <Paper sx={{ p: 3, textAlign: 'center', color: 'error.main' }}>
-        <Typography>{dashboardData.error}</Typography>
+      <Paper sx={{ 
+        p: 3, 
+        textAlign: 'center', 
+        color: 'error.main',
+        borderRadius: 2,
+        border: `1px solid ${theme.palette.error.main}`,
+        bgcolor: theme.palette.error.light + '10'
+      }}>
+        <Typography variant="h6" gutterBottom>
+          {dashboardData.error}
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          onClick={() => window.location.reload()}
+          sx={{ mt: 2 }}
+        >
+          Retry
+        </Button>
       </Paper>
     );
   }
@@ -102,7 +140,13 @@ const ClientDashboard = () => {
     <Grid container spacing={3}>
       {/* Quick Actions */}
       <Grid item xs={12}>
-        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+        <Paper sx={{ 
+          p: 2, 
+          display: 'flex', 
+          flexDirection: 'column',
+          borderRadius: 2,
+          boxShadow: theme.shadows[2]
+        }}>
           <Typography variant="h6" gutterBottom>
             Quick Actions
           </Typography>
@@ -113,6 +157,7 @@ const ClientDashboard = () => {
                 variant="contained"
                 startIcon={<SearchIcon />}
                 onClick={() => navigate('/search-consultants')}
+                sx={{ py: 1.5 }}
               >
                 Find Consultant
               </Button>
@@ -123,6 +168,7 @@ const ClientDashboard = () => {
                 variant="contained"
                 startIcon={<ScheduleIcon />}
                 onClick={() => navigate('/appointments')}
+                sx={{ py: 1.5 }}
               >
                 Book Consultation
               </Button>
@@ -133,6 +179,7 @@ const ClientDashboard = () => {
                 variant="contained"
                 startIcon={<VideoCallIcon />}
                 onClick={() => navigate('/live-stream')}
+                sx={{ py: 1.5 }}
               >
                 Live Consultation
               </Button>
@@ -143,8 +190,26 @@ const ClientDashboard = () => {
                 variant="contained"
                 startIcon={<MessageIcon />}
                 onClick={() => navigate('/messages')}
+                sx={{ py: 1.5 }}
+                color={dashboardData.unreadMessages > 0 ? 'secondary' : 'primary'}
               >
-                Messages {dashboardData.unreadMessages > 0 && `(${dashboardData.unreadMessages})`}
+                Messages {dashboardData.unreadMessages > 0 && (
+                  <Box
+                    component="span"
+                    sx={{
+                      ml: 1,
+                      px: 1,
+                      py: 0.5,
+                      bgcolor: 'white',
+                      color: 'secondary.main',
+                      borderRadius: '50%',
+                      fontSize: '0.75rem',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {dashboardData.unreadMessages}
+                  </Box>
+                )}
               </Button>
             </Grid>
           </Grid>
@@ -153,60 +218,140 @@ const ClientDashboard = () => {
 
       {/* Upcoming Appointments */}
       <Grid item xs={12} md={6}>
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Upcoming Appointments
-            </Typography>
+        <Card sx={{ 
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: 2,
+          boxShadow: theme.shadows[2]
+        }}>
+          <CardContent sx={{ flexGrow: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <EventIcon sx={{ mr: 1, color: 'primary.main' }} />
+              <Typography variant="h6">
+                Upcoming Appointments
+              </Typography>
+            </Box>
             <List>
               {dashboardData.upcomingAppointments.length > 0 ? (
                 dashboardData.upcomingAppointments.slice(0, 3).map((appointment) => (
-                  <ListItem key={appointment.id}>
+                  <ListItem 
+                    key={appointment.id}
+                    sx={{
+                      mb: 1,
+                      bgcolor: 'background.paper',
+                      borderRadius: 1,
+                      border: `1px solid ${theme.palette.divider}`,
+                    }}
+                  >
                     <ListItemIcon>
-                      <EventIcon />
+                      <EventIcon color="primary" />
                     </ListItemIcon>
                     <ListItemText
-                      primary={`${appointment.consultantName} - ${new Date(appointment.startTime).toLocaleString()}`}
-                      secondary={appointment.status}
+                      primary={
+                        <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+                          {appointment.consultantName}
+                        </Typography>
+                      }
+                      secondary={
+                        <>
+                          <Typography variant="body2" color="text.secondary">
+                            {new Date(appointment.startTime).toLocaleString()}
+                          </Typography>
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              color: getStatusColor(appointment.status),
+                              fontWeight: 500
+                            }}
+                          >
+                            {appointment.status}
+                          </Typography>
+                        </>
+                      }
                     />
                   </ListItem>
                 ))
               ) : (
-                <ListItem>
+                <ListItem sx={{ 
+                  bgcolor: 'background.paper',
+                  borderRadius: 1,
+                  border: `1px solid ${theme.palette.divider}`,
+                }}>
                   <ListItemIcon>
-                    <EventIcon />
+                    <EventIcon color="action" />
                   </ListItemIcon>
                   <ListItemText
                     primary="No upcoming appointments"
-                    secondary="Click 'Book Consultation' to schedule one"
+                    secondary={
+                      <Button
+                        variant="text"
+                        color="primary"
+                        onClick={() => navigate('/appointments')}
+                        sx={{ mt: 1, p: 0 }}
+                      >
+                        Click here to book a consultation
+                      </Button>
+                    }
                   />
                 </ListItem>
               )}
             </List>
           </CardContent>
-          <CardActions>
-            <Button size="small" onClick={() => navigate('/appointments')}>
-              View All
-            </Button>
-          </CardActions>
+          {dashboardData.upcomingAppointments.length > 0 && (
+            <CardActions sx={{ p: 2, pt: 0 }}>
+              <Button 
+                size="small" 
+                onClick={() => navigate('/appointments')}
+                endIcon={<ArrowForwardIcon />}
+              >
+                View All Appointments
+              </Button>
+            </CardActions>
+          )}
         </Card>
       </Grid>
 
       {/* Recent Messages */}
       <Grid item xs={12} md={6}>
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Messages {dashboardData.unreadMessages > 0 && 
-                <Typography component="span" color="primary">
-                  ({dashboardData.unreadMessages} unread)
-                </Typography>
-              }
-            </Typography>
+        <Card sx={{ 
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: 2,
+          boxShadow: theme.shadows[2]
+        }}>
+          <CardContent sx={{ flexGrow: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <MessageIcon sx={{ mr: 1, color: 'primary.main' }} />
+              <Typography variant="h6">
+                Messages
+                {dashboardData.unreadMessages > 0 && (
+                  <Box
+                    component="span"
+                    sx={{
+                      ml: 1,
+                      px: 1.5,
+                      py: 0.5,
+                      bgcolor: 'secondary.main',
+                      color: 'white',
+                      borderRadius: 'pill',
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    {dashboardData.unreadMessages} new
+                  </Box>
+                )}
+              </Typography>
+            </Box>
             <List>
-              <ListItem>
+              <ListItem sx={{ 
+                bgcolor: 'background.paper',
+                borderRadius: 1,
+                border: `1px solid ${theme.palette.divider}`,
+              }}>
                 <ListItemIcon>
-                  <MessageIcon />
+                  <MessageIcon color="action" />
                 </ListItemIcon>
                 <ListItemText
                   primary={dashboardData.unreadMessages > 0 
@@ -218,8 +363,12 @@ const ClientDashboard = () => {
               </ListItem>
             </List>
           </CardContent>
-          <CardActions>
-            <Button size="small" onClick={() => navigate('/messages')}>
+          <CardActions sx={{ p: 2, pt: 0 }}>
+            <Button 
+              size="small" 
+              onClick={() => navigate('/messages')}
+              endIcon={<ArrowForwardIcon />}
+            >
               View All
             </Button>
           </CardActions>
@@ -242,14 +391,24 @@ const ConsultantDashboard = () => {
 
   useEffect(() => {
     const loadDashboardData = async () => {
-      if (!user?.uid) return;
+      if (!user?.uid) {
+        setDashboardData(prev => ({
+          ...prev,
+          loading: false,
+          error: 'User not authenticated',
+        }));
+        return;
+      }
 
       try {
-        // Load today's appointments
-        const appointments = await appointmentService.getConsultantAppointments(user.uid);
+        setDashboardData(prev => ({ ...prev, loading: true, error: null }));
         
-        // Get unread message count
-        const conversations = await messageService.getConversations(user.uid);
+        // Load data in parallel for better performance
+        const [appointments, conversations] = await Promise.all([
+          appointmentService.getConsultantAppointments(user.uid),
+          messageService.getConversations(user.uid),
+        ]);
+        
         const unreadCount = conversations.reduce((total, conv) => 
           total + (conv.unreadCount[user.uid] || 0), 0);
 
@@ -264,7 +423,7 @@ const ConsultantDashboard = () => {
         setDashboardData(prev => ({
           ...prev,
           loading: false,
-          error: 'Failed to load dashboard data',
+          error: 'Failed to load dashboard data. Please try again later.',
         }));
       }
     };
@@ -274,16 +433,43 @@ const ConsultantDashboard = () => {
 
   if (dashboardData.loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-        <CircularProgress />
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        p: 3,
+        minHeight: '50vh'
+      }}>
+        <CircularProgress size={40} />
+        <Typography variant="body1" sx={{ mt: 2 }}>
+          Loading your dashboard...
+        </Typography>
       </Box>
     );
   }
 
   if (dashboardData.error) {
     return (
-      <Paper sx={{ p: 3, textAlign: 'center', color: 'error.main' }}>
-        <Typography>{dashboardData.error}</Typography>
+      <Paper sx={{ 
+        p: 3, 
+        textAlign: 'center', 
+        color: 'error.main',
+        borderRadius: 2,
+        border: `1px solid ${theme.palette.error.main}`,
+        bgcolor: theme.palette.error.light + '10'
+      }}>
+        <Typography variant="h6" gutterBottom>
+          {dashboardData.error}
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          onClick={() => window.location.reload()}
+          sx={{ mt: 2 }}
+        >
+          Retry
+        </Button>
       </Paper>
     );
   }
@@ -292,7 +478,13 @@ const ConsultantDashboard = () => {
     <Grid container spacing={3}>
       {/* Quick Actions */}
       <Grid item xs={12}>
-        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+        <Paper sx={{ 
+          p: 2, 
+          display: 'flex', 
+          flexDirection: 'column',
+          borderRadius: 2,
+          boxShadow: theme.shadows[2]
+        }}>
           <Typography variant="h6" gutterBottom>
             Quick Actions
           </Typography>
@@ -303,6 +495,7 @@ const ConsultantDashboard = () => {
                 variant="contained"
                 startIcon={<ScheduleIcon />}
                 onClick={() => navigate('/availability')}
+                sx={{ py: 1.5 }}
               >
                 Set Availability
               </Button>
@@ -313,8 +506,26 @@ const ConsultantDashboard = () => {
                 variant="contained"
                 startIcon={<MessageIcon />}
                 onClick={() => navigate('/messages')}
+                sx={{ py: 1.5 }}
+                color={dashboardData.unreadMessages > 0 ? 'secondary' : 'primary'}
               >
-                Messages {dashboardData.unreadMessages > 0 && `(${dashboardData.unreadMessages})`}
+                Messages {dashboardData.unreadMessages > 0 && (
+                  <Box
+                    component="span"
+                    sx={{
+                      ml: 1,
+                      px: 1,
+                      py: 0.5,
+                      bgcolor: 'white',
+                      color: 'secondary.main',
+                      borderRadius: '50%',
+                      fontSize: '0.75rem',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {dashboardData.unreadMessages}
+                  </Box>
+                )}
               </Button>
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
@@ -323,6 +534,7 @@ const ConsultantDashboard = () => {
                 variant="contained"
                 startIcon={<DocumentIcon />}
                 onClick={() => navigate('/documents')}
+                sx={{ py: 1.5 }}
               >
                 Documents
               </Button>
@@ -333,6 +545,7 @@ const ConsultantDashboard = () => {
                 variant="contained"
                 startIcon={<PersonIcon />}
                 onClick={() => navigate('/profile')}
+                sx={{ py: 1.5 }}
               >
                 Edit Profile
               </Button>
@@ -343,28 +556,68 @@ const ConsultantDashboard = () => {
 
       {/* Today's Schedule */}
       <Grid item xs={12} md={6}>
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Today's Schedule
-            </Typography>
+        <Card sx={{ 
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: 2,
+          boxShadow: theme.shadows[2]
+        }}>
+          <CardContent sx={{ flexGrow: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <EventIcon sx={{ mr: 1, color: 'primary.main' }} />
+              <Typography variant="h6">
+                Today's Schedule
+              </Typography>
+            </Box>
             <List>
               {dashboardData.upcomingAppointments.length > 0 ? (
                 dashboardData.upcomingAppointments.slice(0, 3).map((appointment) => (
-                  <ListItem key={appointment.id}>
+                  <ListItem 
+                    key={appointment.id}
+                    sx={{
+                      mb: 1,
+                      bgcolor: 'background.paper',
+                      borderRadius: 1,
+                      border: `1px solid ${theme.palette.divider}`,
+                    }}
+                  >
                     <ListItemIcon>
-                      <EventIcon />
+                      <EventIcon color="primary" />
                     </ListItemIcon>
                     <ListItemText
-                      primary={`${appointment.clientName} - ${new Date(appointment.startTime).toLocaleString()}`}
-                      secondary={appointment.status}
+                      primary={
+                        <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+                          {appointment.clientName}
+                        </Typography>
+                      }
+                      secondary={
+                        <>
+                          <Typography variant="body2" color="text.secondary">
+                            {new Date(appointment.startTime).toLocaleString()}
+                          </Typography>
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              color: getStatusColor(appointment.status),
+                              fontWeight: 500
+                            }}
+                          >
+                            {appointment.status}
+                          </Typography>
+                        </>
+                      }
                     />
                   </ListItem>
                 ))
               ) : (
-                <ListItem>
+                <ListItem sx={{ 
+                  bgcolor: 'background.paper',
+                  borderRadius: 1,
+                  border: `1px solid ${theme.palette.divider}`,
+                }}>
                   <ListItemIcon>
-                    <EventIcon />
+                    <EventIcon color="action" />
                   </ListItemIcon>
                   <ListItemText
                     primary="No appointments today"
@@ -374,29 +627,60 @@ const ConsultantDashboard = () => {
               )}
             </List>
           </CardContent>
-          <CardActions>
-            <Button size="small" onClick={() => navigate('/schedule')}>
-              View Full Schedule
-            </Button>
-          </CardActions>
+          {dashboardData.upcomingAppointments.length > 0 && (
+            <CardActions sx={{ p: 2, pt: 0 }}>
+              <Button 
+                size="small" 
+                onClick={() => navigate('/schedule')}
+                endIcon={<ArrowForwardIcon />}
+              >
+                View Full Schedule
+              </Button>
+            </CardActions>
+          )}
         </Card>
       </Grid>
 
       {/* Messages */}
       <Grid item xs={12} md={6}>
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Messages {dashboardData.unreadMessages > 0 && 
-                <Typography component="span" color="primary">
-                  ({dashboardData.unreadMessages} unread)
-                </Typography>
-              }
-            </Typography>
+        <Card sx={{ 
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: 2,
+          boxShadow: theme.shadows[2]
+        }}>
+          <CardContent sx={{ flexGrow: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <MessageIcon sx={{ mr: 1, color: 'primary.main' }} />
+              <Typography variant="h6">
+                Messages
+                {dashboardData.unreadMessages > 0 && (
+                  <Box
+                    component="span"
+                    sx={{
+                      ml: 1,
+                      px: 1.5,
+                      py: 0.5,
+                      bgcolor: 'secondary.main',
+                      color: 'white',
+                      borderRadius: 'pill',
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    {dashboardData.unreadMessages} new
+                  </Box>
+                )}
+              </Typography>
+            </Box>
             <List>
-              <ListItem>
+              <ListItem sx={{ 
+                bgcolor: 'background.paper',
+                borderRadius: 1,
+                border: `1px solid ${theme.palette.divider}`,
+              }}>
                 <ListItemIcon>
-                  <MessageIcon />
+                  <MessageIcon color="action" />
                 </ListItemIcon>
                 <ListItemText
                   primary={dashboardData.unreadMessages > 0 
@@ -408,8 +692,12 @@ const ConsultantDashboard = () => {
               </ListItem>
             </List>
           </CardContent>
-          <CardActions>
-            <Button size="small" onClick={() => navigate('/messages')}>
+          <CardActions sx={{ p: 2, pt: 0 }}>
+            <Button 
+              size="small" 
+              onClick={() => navigate('/messages')}
+              endIcon={<ArrowForwardIcon />}
+            >
               View All
             </Button>
           </CardActions>
@@ -470,6 +758,19 @@ const Dashboard = () => {
       {user?.role === 'client' ? <ClientDashboard /> : <ConsultantDashboard />}
     </Container>
   );
+};
+
+const getStatusColor = (status: string) => {
+  switch (status.toLowerCase()) {
+    case 'scheduled':
+      return 'success.main';
+    case 'pending':
+      return 'warning.main';
+    case 'cancelled':
+      return 'error.main';
+    default:
+      return 'text.secondary';
+  }
 };
 
 export default Dashboard;

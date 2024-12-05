@@ -1,9 +1,7 @@
 import React from 'react';
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Provider } from 'react-redux';
-import { store } from './store/store';
 import { theme } from './theme/theme';
 import { useActivityTracker } from './hooks/useActivityTracker';
 import { ToastContainer } from 'react-toastify';
@@ -11,25 +9,24 @@ import 'react-toastify/dist/ReactToastify.css';
 import { PrivateRoute } from './components/auth/PrivateRoute';
 import { AuthProvider } from './contexts/AuthContext';
 
-// Pages
-import LandingPage from './pages/landing/LandingPage';
-import { Login } from './components/auth/Login';
-import Register from './pages/auth/Register';
-import ConsultantSignup from './components/auth/ConsultantSignup';
-import ClientSignup from './components/auth/ClientSignup';
-import RoleSelection from './components/auth/RoleSelection';
-import Dashboard from './pages/Dashboard';
-import Messages from './pages/Messages';
-import Documents from './pages/Documents';
-import Layout from './components/Layout';
-import ForgotPassword from './components/auth/ForgotPassword';
-import NewLogin from './components/auth/NewLogin';
-import LiveStream from './pages/LiveStream';
-import SignUp from './pages/auth/SignUp';
-import PaymentSetup from './components/consultant/PaymentSetup';
-import ConsultantSearch from './components/consultant/ConsultantSearch';
-import ConsultantProfilePage from './components/consultant/ConsultantProfilePage';
-import { SubscriptionPlans } from './components/subscription/SubscriptionPlans';
+// Lazy load components
+const LandingPage = React.lazy(() => import('./pages/landing/LandingPage'));
+const Login = React.lazy(() => import('./components/auth/Login'));
+const Register = React.lazy(() => import('./pages/auth/Register'));
+const ConsultantSignup = React.lazy(() => import('./components/auth/ConsultantSignup'));
+const ClientSignup = React.lazy(() => import('./components/auth/ClientSignup'));
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const Messages = React.lazy(() => import('./pages/Messages'));
+const Documents = React.lazy(() => import('./pages/Documents'));
+const Layout = React.lazy(() => import('./components/Layout'));
+const ForgotPassword = React.lazy(() => import('./components/auth/ForgotPassword'));
+const NewLogin = React.lazy(() => import('./components/auth/NewLogin'));
+const LiveStream = React.lazy(() => import('./pages/LiveStream'));
+const SignUp = React.lazy(() => import('./pages/auth/SignUp'));
+const PaymentSetup = React.lazy(() => import('./components/consultant/PaymentSetup'));
+const ConsultantSearch = React.lazy(() => import('./components/consultant/ConsultantSearch'));
+const ConsultantProfilePage = React.lazy(() => import('./components/consultant/ConsultantProfilePage'));
+const SubscriptionPlans = React.lazy(() => import('./components/subscription/SubscriptionPlans'));
 
 // Placeholder components
 const Profile = () => <div>Profile page coming soon!</div>;
@@ -45,21 +42,25 @@ const AppContent = () => {
   
   return (
     <div className="App">
-      <Provider store={store}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <ToastContainer
-            position="top-right"
-            autoClose={5000}
-            hideProgressBar={false}
-            newestOnTop
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="light"
-          />
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
+        <React.Suspense fallback={
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+            Loading...
+          </div>
+        }>
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
@@ -90,8 +91,8 @@ const AppContent = () => {
             {/* Catch all route */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
-        </ThemeProvider>
-      </Provider>
+        </React.Suspense>
+      </ThemeProvider>
     </div>
   );
 };
